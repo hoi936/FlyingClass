@@ -1,0 +1,100 @@
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:06:43,721 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:06:55,549 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:07:07,365 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:08:31,210 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'oke', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:09:50,234 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:09:58,231 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:09:59,565 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:09:59,790 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:00,535 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:00,788 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:00,816 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:14,773 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0009', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:16,619 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0009', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:17,193 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0009', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:26,544 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:26,804 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0010', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:34,013 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:35,701 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:10:54,823 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'frappe.integrations.oauth2_logins.login_via_google'}
+2026-05-26 23:10:56,932 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'flying_class.flying_class.api.get_user_info'}
+2026-05-26 23:10:56,948 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'flying_class.flying_class.api.get_user_info'}
+2026-05-26 23:10:58,317 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'frappe.integrations.oauth2_logins.login_via_google'}
+2026-05-26 23:10:59,954 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'flying_class.flying_class.api.get_user_info'}
+2026-05-26 23:10:59,972 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'flying_class.flying_class.api.get_user_info'}
+2026-05-26 23:11:16,591 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'email': 'phandinhhoi2709@gmail.com', 'cmd': 'flying_class.flying_class.api_auth.send_otp'}
+2026-05-26 23:11:22,251 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'email': 'phandinhhoi2709@gmail.com', 'cmd': 'flying_class.flying_class.api_auth.send_otp'}
+2026-05-26 23:11:28,739 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'email': 'phandinhhoi2709@gmail.com', 'cmd': 'flying_class.flying_class.api_auth.send_otp'}
+2026-05-26 23:13:45,913 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'student@flyingclass.com', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:14:25,184 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:14:27,393 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:14:27,692 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:14:28,256 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:14:28,460 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}

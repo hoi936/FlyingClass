@@ -1,0 +1,30 @@
+# Node
+node_modules/
+dist/
+build/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+venv/
+env/
+
+# Frappe specific
+backend/v16-bench/sites/flyingclass.localhost/private/
+backend/v16-bench/sites/flyingclass.localhost/public/files/
+backend/v16-bench/sites/flyingclass.localhost/site_config.json
+backend/v16-bench/sites/flyingclass.localhost/locks/
+backend/v16-bench/sites/flyingclass.localhost/logs/
+backend/v16-bench/config/
+backend/v16-bench/logs/
+backend/v16-bench/env/
+*.swp
+.DS_Store
+cookies.txt
+student_cookies.txt
+login.json
+student_login.json
+.agent/

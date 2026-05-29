@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-24 15:47:46.661692",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "question_text",
+  "option_a",
+  "option_b",
+  "option_c",
+  "option_d",
+  "correct_option"
+ ],
+ "fields": [
+  {
+   "fieldname": "question_text",
+   "fieldtype": "Text",
+   "label": "Question"
+  },
+  {
+   "fieldname": "option_a",
+   "fieldtype": "Data",
+   "label": "Option A"
+  },
+  {
+   "fieldname": "option_b",
+   "fieldtype": "Data",
+   "label": "Option B"
+  },
+  {
+   "fieldname": "option_c",
+   "fieldtype": "Data",
+   "label": "Option C"
+  },
+  {
+   "fieldname": "option_d",
+   "fieldtype": "Data",
+   "label": "Option D"
+  },
+  {
+   "fieldname": "correct_option",
+   "fieldtype": "Select",
+   "label": "Correct Option",
+   "options": "A\nB\nC\nD"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-24 15:47:46.661692",
+ "modified_by": "Administrator",
+ "module": "Flying Class",
+ "name": "FC Question",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

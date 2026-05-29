@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SUB-{YYYY}-{####}",
+ "creation": "2026-05-24 15:47:46.766594",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "exam_ref",
+  "student",
+  "answers_json",
+  "score",
+  "teacher_comment"
+ ],
+ "fields": [
+  {
+   "fieldname": "exam_ref",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Exam",
+   "options": "FC Exam",
+   "reqd": 1
+  },
+  {
+   "fieldname": "student",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Student",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "answers_json",
+   "fieldtype": "Code",
+   "label": "Answers (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "score",
+   "fieldtype": "Float",
+   "label": "Score"
+  },
+  {
+   "fieldname": "teacher_comment",
+   "fieldtype": "Text",
+   "label": "Teacher Comment"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-24 15:47:46.766594",
+ "modified_by": "Administrator",
+ "module": "Flying Class",
+ "name": "FC Submission",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Admin",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

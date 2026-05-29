@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:DOC-{YYYY}-{####}",
+ "creation": "2026-05-26 13:46:01.424077",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "document_name",
+  "class_ref",
+  "doc_type",
+  "parent_folder",
+  "link_url",
+  "teacher"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "T\u00ean t\u00e0i li\u1ec7u",
+   "reqd": 1
+  },
+  {
+   "fieldname": "class_ref",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "L\u1edbp h\u1ecdc",
+   "options": "FC Class",
+   "reqd": 1
+  },
+  {
+   "default": "Link",
+   "fieldname": "doc_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Lo\u1ea1i",
+   "options": "Folder\nLink",
+   "reqd": 1
+  },
+  {
+   "fieldname": "parent_folder",
+   "fieldtype": "Link",
+   "label": "Th\u01b0 m\u1ee5c cha",
+   "options": "FC Document"
+  },
+  {
+   "fieldname": "link_url",
+   "fieldtype": "Data",
+   "label": "\u0110\u01b0\u1eddng d\u1eabn (URL)"
+  },
+  {
+   "fieldname": "teacher",
+   "fieldtype": "Link",
+   "label": "Gi\u00e1o vi\u00ean",
+   "options": "User",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-26 13:46:01.424077",
+ "modified_by": "Administrator",
+ "module": "Flying Class",
+ "name": "FC Document",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Teacher",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Student",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Admin",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

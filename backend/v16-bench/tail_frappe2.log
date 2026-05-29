@@ -1,0 +1,105 @@
+2026-05-26 23:04:01,308 ERROR frappe Could not take error snapshot: current transaction is aborted, commands ignored until end of transaction block
+
+Site: flyingclass.localhost
+Form Dict: {'cmd': 'flying_class.flying_class.api.get_student_exam_results'}
+Traceback (most recent call last):
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/app.py", line 121, in application
+    response = frappe.api.handle(request)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/api/__init__.py", line 63, in handle
+    data = endpoint(**arguments)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/api/v1.py", line 40, in handle_rpc_call
+    return frappe.handler.handle()
+           ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/handler.py", line 53, in handle
+    data = execute_cmd(cmd)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/handler.py", line 86, in execute_cmd
+    return frappe.call(method, **frappe.form_dict)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/__init__.py", line 1129, in call
+    return fn(*args, **newargs)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/utils/typing_validations.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/flying_class/flying_class/flying_class/api.py", line 1281, in get_student_exam_results
+    results = frappe.get_all(
+        "FC Exam Result",
+    ...<2 lines>...
+        order_by="creation desc"
+    )
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/__init__.py", line 1387, in get_all
+    return get_list(doctype, *args, **kwargs)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/__init__.py", line 1362, in get_list
+    return frappe.model.qb_query.DatabaseQuery(doctype).execute(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/qb_query.py", line 212, in execute
+    result = query.run(debug=debug, as_dict=not as_list, update=update)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/query_builder/utils.py", line 131, in execute_query
+    result = frappe.local.db.sql(query, params, *args, **kwargs)  # nosemgrep
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/postgres/database.py", line 234, in sql
+    return super().sql(modify_query(query), modify_values(values), *args, **kwargs)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 272, in sql
+    self.execute_query(query, values)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 372, in execute_query
+    return self._cursor.execute(query, values)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedColumn: column "status" does not exist
+LINE 1: ..._ref","score","correct_answers","total_questions","status" F...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "tabFC Exam Result.docstatus".
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/utils/error.py", line 125, in log_error_snapshot
+    log_error(title=str(exception), defer_insert=True)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/utils/error.py", line 64, in log_error
+    error_log = frappe.get_doc(
+    	doctype="Error Log",
+    ...<5 lines>...
+    	metadata=metadata,
+    )
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/utils/__init__.py", line 224, in wrapper
+    return func(*args, **kw)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/document.py", line 111, in get_doc
+    return get_doc_from_dict(kwargs)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/document.py", line 140, in get_doc_from_dict
+    if controller := get_controller(data["doctype"]):
+                     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/base_document.py", line 92, in get_controller
+    site_controllers[doctype] = import_controller(doctype)
+                                ~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/model/base_document.py", line 103, in import_controller
+    doctype_info = frappe.db.get_value("DocType", doctype, ("module", "custom", "is_tree"), as_dict=True)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 564, in get_value
+    result = self.get_values(
+    	doctype,
+    ...<13 lines>...
+    	wait=wait,
+    )
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 680, in get_values
+    out = query.run(as_dict=as_dict, debug=debug, update=update, run=run, pluck=pluck)
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/query_builder/utils.py", line 131, in execute_query
+    result = frappe.local.db.sql(query, params, *args, **kwargs)  # nosemgrep
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/postgres/database.py", line 234, in sql
+    return super().sql(modify_query(query), modify_values(values), *args, **kwargs)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 272, in sql
+    self.execute_query(query, values)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/user/Flying_Class/backend/v16-bench/apps/frappe/frappe/database/database.py", line 372, in execute_query
+    return self._cursor.execute(query, values)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+psycopg2.errors.InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+
+2026-05-26 23:04:12,919 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:04:30,160 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}
+2026-05-26 23:04:30,410 ERROR frappe New Exception collected in error log
+Site: flyingclass.localhost
+Form Dict: {'class_id': 'CLS-2026-0016', 'message': 'dạ ', 'cmd': 'flying_class.flying_class.api.send_chat_message'}

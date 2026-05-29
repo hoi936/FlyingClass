@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:TCP-{YYYY}-{####}",
+ "creation": "2026-05-24 15:47:46.390605",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "full_name",
+  "dob",
+  "phone",
+  "cccd_number",
+  "identify_card",
+  "certificates",
+  "status",
+  "kyc_section",
+  "id_card_image",
+  "certificate_image",
+  "rejection_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dob",
+   "fieldtype": "Date",
+   "label": "Date of Birth"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone Number"
+  },
+  {
+   "fieldname": "cccd_number",
+   "fieldtype": "Data",
+   "label": "Citizen ID Number (CCCD)"
+  },
+  {
+   "fieldname": "identify_card",
+   "fieldtype": "Attach",
+   "label": "Identity Card"
+  },
+  {
+   "fieldname": "certificates",
+   "fieldtype": "Attach",
+   "label": "Certificates"
+  },
+  {
+   "default": "Not Submitted",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Not Submitted\nPending\nApproved\nRejected"
+  },
+  {
+   "fieldname": "kyc_section",
+   "fieldtype": "Section Break",
+   "label": "KYC Documents"
+  },
+  {
+   "fieldname": "id_card_image",
+   "fieldtype": "Attach Image",
+   "label": "ID Card (CCCD)"
+  },
+  {
+   "fieldname": "certificate_image",
+   "fieldtype": "Attach Image",
+   "label": "Teaching Certificate"
+  },
+  {
+   "depends_on": "eval:doc.status=='Rejected'",
+   "fieldname": "rejection_reason",
+   "fieldtype": "Data",
+   "label": "Rejection Reason"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-24 17:28:30.505926",
+ "modified_by": "Administrator",
+ "module": "Flying Class",
+ "name": "FC Teacher Profile",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Admin",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
