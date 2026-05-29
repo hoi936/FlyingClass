@@ -275,6 +275,16 @@ export const classService = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return res.data.message.file_url;
+  },
+  
+  getPendingSubscriptions: async () => {
+    const res = await api.get('/api/method/flying_class.flying_class.api_admin.get_pending_subscriptions');
+    return res.data;
+  },
+
+  approveSubscription: async (order_id: string, status: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api_admin.approve_subscription', { order_id, status });
+    return res.data;
   }
 };
 
@@ -460,4 +470,14 @@ export const studentService = {
     });
     return res.data.message;
   },
+  
+  getSubscriptionStatus: async () => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_subscription_status');
+    return res.data;
+  },
+
+  createSubscriptionOrder: async (package_type: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.create_subscription_order', { package_type });
+    return res.data;
+  }
 };

@@ -17,6 +17,7 @@ import {
 import { useThemeStore } from '../store/useThemeStore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
+import AIPricingModal from '../components/AIPricingModal';
 
 const TeacherDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -101,6 +102,10 @@ const TeacherDashboard = () => {
   const [aiInput, setAiInput] = useState('');
   const [isAILoading, setIsAILoading] = useState(false);
   const aiMessagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // AI Subscription State
+  const [showAIPricing, setShowAIPricing] = useState(false);
+  const [aiSubscriptionStatus, setAiSubscriptionStatus] = useState<any>(null);
   // MOCK DATA
   const [dashboardStats, setDashboardStats] = useState({
     totalClasses: 0,
@@ -222,6 +227,10 @@ const TeacherDashboard = () => {
   // --- CHAT SESSION FUNCTIONS ---
   const fetchChatSessions = async () => {
     try {
+      const subRes = await teacherService.getSubscriptionStatus();
+      if (subRes.success) {
+        setAiSubscriptionStatus(subRes);
+      }
       const res = await teacherService.getChatSessions();
       if (res?.success) setChatSessions(res.data || []);
     } catch(err) { console.error(err); }
@@ -688,7 +697,7 @@ const TeacherDashboard = () => {
     setIsAILoading(true);
 
     try {
-      const genAI = new GoogleGenerativeAI("AIzaSyBf-QQyaSKfMOkQLvFbX1IG8xwSiljBey4");
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE");
       const model = genAI.getGenerativeModel({ 
         model: "gemini-flash-latest",
         systemInstruction: `Bạn là trợ lý AI chuyên môn cao của lớp học "${selectedClass.name}". Nhiệm vụ của bạn là hỗ trợ giáo viên giải đáp kiến thức, soạn đề kiểm tra, tóm tắt bài giảng. Hãy trả lời thân thiện, ngắn gọn và tập trung vào chuyên môn của lớp ${selectedClass.name}.`
@@ -845,6 +854,14 @@ const TeacherDashboard = () => {
     
     try {
       const res = await teacherService.generateMockExam(userMsg, numQuestions, aiAttachedFile);
+      
+      if (res.code === 'AI_EXPIRED' || !res.success && res.message.includes('hết hạn')) {
+        setShowAIPricing(true);
+        setAiChatLogs(prev => [...prev, { sender: 'FlyingClass AI', text: 'Tài khoản của bạn đã hết hạn sử dụng AI. Vui lòng gia hạn để tiếp tục!' }]);
+        setIsAiTyping(false);
+        return;
+      }
+      
       const aiText = res.message || '';
       const aiQuestions = res.data || [];
       setAiChatLogs(prev => [...prev, { sender: 'FlyingClass AI', text: aiText, questions: aiQuestions }]);
@@ -2775,6 +2792,9 @@ const TeacherDashboard = () => {
           </div>
         </div>
       )}
+      {targetForm === 'edit' && <ImageCropModal />}
+
+      <AIPricingModal isOpen={showAIPricing} onClose={() => setShowAIPricing(false)} />
     </div>
   );
 };

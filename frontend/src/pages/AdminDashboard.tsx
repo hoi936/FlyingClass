@@ -53,6 +53,9 @@ const AdminDashboard = () => {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpValue, setOtpValue] = useState('');
 
+  // AI Subscriptions
+  const [aiSubscriptions, setAiSubscriptions] = useState<any[]>([]);
+
   useEffect(() => {
     fetchData();
   }, [chartFilter]);
@@ -79,6 +82,11 @@ const AdminDashboard = () => {
       const sysSettings = await classService.getSystemSettings();
       if (sysSettings.success) {
         setMaintenanceMode(sysSettings.data.maintenance_mode === 1);
+      }
+      
+      const subs = await classService.getPendingSubscriptions();
+      if (subs.success) {
+        setAiSubscriptions(subs.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -150,6 +158,21 @@ const AdminDashboard = () => {
       fetchData();
     } catch (err) {
       alert('Có lỗi xảy ra');
+    }
+  };
+
+  const handleApproveSubscription = async (orderId: string, status: string) => {
+    if (!confirm(`Bạn chắc chắn muốn ${status === 'Approved' ? 'duyệt' : 'từ chối'} thanh toán này?`)) return;
+    try {
+      const res = await classService.approveSubscription(orderId, status);
+      if (res.success) {
+        alert(res.message);
+        fetchData();
+      } else {
+        alert(res.message);
+      }
+    } catch (err) {
+      alert('Có lỗi xảy ra.');
     }
   };
 
@@ -736,6 +759,13 @@ const AdminDashboard = () => {
             )}
           </button>
 
+          <button onClick={() => setActiveTab('ai_subscriptions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'ai_subscriptions' ? 'bg-gradient-to-r from-rose-500/20 to-orange-500/20 text-rose-400 border border-rose-500/30 shadow-lg' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:bg-slate-800 hover:text-slate-900 dark:text-white'}`}>
+            <DollarSign size={20} /> Duyệt Gói AI
+            {aiSubscriptions.length > 0 && (
+              <span className="ml-auto bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">{aiSubscriptions.length}</span>
+            )}
+          </button>
+
           <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'users' ? 'bg-gradient-to-r from-rose-500/20 to-orange-500/20 text-rose-400 border border-rose-500/30 shadow-lg' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:bg-slate-800 hover:text-slate-900 dark:text-white'}`}>
             <Users size={20} /> Quản Lý Người Dùng
           </button>
@@ -1024,6 +1054,86 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+      {/* AI Subscriptions View */}
+      {activeTab === 'ai_subscriptions' && (
+        <div className="flex-1 p-8 overflow-y-auto">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Duyệt Đơn Mua Gói AI</h2>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">Quản lý các yêu cầu nâng cấp AI từ Giáo viên</p>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-slate-800 dark:text-white">Danh sách đơn hàng Pending</h3>
+            </div>
+            {aiSubscriptions.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 dark:text-slate-400">
+                <CheckCircle className="w-12 h-12 mx-auto text-emerald-400 mb-4 opacity-50" />
+                <p>Không có yêu cầu duyệt gói AI nào lúc này.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">Giáo Viên</th>
+                      <th className="px-6 py-4 font-medium">Gói Cước</th>
+                      <th className="px-6 py-4 font-medium">Số Tiền</th>
+                      <th className="px-6 py-4 font-medium">Mã Đơn Hàng</th>
+                      <th className="px-6 py-4 font-medium">Thời Gian Tạo</th>
+                      <th className="px-6 py-4 font-medium text-right">Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {aiSubscriptions.map(sub => (
+                      <tr key={sub.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-slate-900 dark:text-white">{sub.teacher_name}</p>
+                          <p className="text-sm text-slate-500">{sub.teacher}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.package_type === 'Yearly' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                            {sub.package_type === 'Monthly' ? '1 Tháng' : '1 Năm'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">
+                          {sub.amount.toLocaleString()} đ
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-mono bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded text-sm text-slate-600 dark:text-slate-400">{sub.order_code}</span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 text-sm">
+                          {new Date(sub.creation).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleApproveSubscription(sub.name, 'Rejected')}
+                              className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30"
+                              title="Từ chối"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleApproveSubscription(sub.name, 'Approved')}
+                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm shadow-emerald-500/20"
+                            >
+                              <CheckCircle size={16} /> Duyệt
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* OTP Modal for AI Config Unlock */}
       {showOtpModal && (

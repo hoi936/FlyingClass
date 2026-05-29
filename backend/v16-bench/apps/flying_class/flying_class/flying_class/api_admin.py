@@ -455,3 +455,58 @@ def update_system_settings(maintenance_mode):
     settings.save(ignore_permissions=True)
     frappe.db.commit()
     return {"success": True, "message": "Đã cập nhật cài đặt hệ thống"}
+
+@frappe.whitelist()
+def get_pending_subscriptions():
+    user = frappe.session.user
+    if "FC Admin" not in frappe.get_roles(user):
+        return {"success": False, "message": "Không có quyền"}
+        
+    orders = frappe.get_all(
+        "FC AI Subscription Order",
+        filters={"status": "Pending"},
+        fields=["name", "teacher", "package_type", "amount", "order_code", "creation"],
+        order_by="creation desc"
+    )
+    
+    for o in orders:
+        o["teacher_name"] = frappe.db.get_value("User", o.teacher, "full_name") or o.teacher
+        
+    return {"success": True, "data": orders}
+
+@frappe.whitelist()
+def approve_subscription(order_id, status):
+    user = frappe.session.user
+    if "FC Admin" not in frappe.get_roles(user):
+        return {"success": False, "message": "Không có quyền"}
+        
+    order = frappe.get_doc("FC AI Subscription Order", order_id)
+    if order.status != "Pending":
+        return {"success": False, "message": "Đơn hàng đã được xử lý"}
+        
+    if status not in ["Approved", "Rejected"]:
+        return {"success": False, "message": "Trạng thái không hợp lệ"}
+        
+    order.status = status
+    from frappe.utils import now_datetime
+    order.payment_date = now_datetime()
+    
+    if status == "Approved":
+        teacher_user = frappe.get_doc("User", order.teacher)
+        current_exp = teacher_user.get("custom_ai_expiration_date")
+        
+        from frappe.utils import add_days, getdate, today
+        
+        start_date = getdate(today())
+        if current_exp and getdate(current_exp) > start_date:
+            start_date = getdate(current_exp)
+            
+        days_to_add = 30 if order.package_type == "Monthly" else 365
+        new_exp = add_days(start_date, days_to_add)
+        
+        teacher_user.db_set("custom_ai_expiration_date", new_exp)
+        
+    order.save(ignore_permissions=True)
+    frappe.db.commit()
+    
+    return {"success": True, "message": f"Đã {status} đơn hàng thành công"}

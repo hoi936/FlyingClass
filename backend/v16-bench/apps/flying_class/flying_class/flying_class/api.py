@@ -1023,6 +1023,18 @@ def get_teacher_dashboard_summary():
 @frappe.whitelist()
 def generate_ai_exam(prompt=None, num_questions=5):
     user = frappe.session.user
+    
+    # Check AI Expiration
+    user_doc = frappe.get_doc("User", user)
+    expiration_date = user_doc.get("custom_ai_expiration_date")
+    from frappe.utils import getdate, today
+    if not expiration_date or getdate(expiration_date) < getdate(today()):
+        return {
+            "success": False,
+            "message": "Gói AI của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng tính năng này.",
+            "code": "AI_EXPIRED"
+        }
+        
     try:
         num_questions = int(num_questions)
     except:
@@ -1929,3 +1941,49 @@ def update_exam_in_bank(exam_name, title, duration, questions):
     frappe.db.commit()
     
     return {"success": True, "message": "Đề thi đã được cập nhật!", "data": {"name": exam.name}}
+
+@frappe.whitelist()
+def get_subscription_status():
+    user = frappe.session.user
+    user_doc = frappe.get_doc("User", user)
+    expiration_date = user_doc.get("custom_ai_expiration_date")
+    
+    from frappe.utils import getdate, today, date_diff
+    is_active = False
+    days_left = 0
+    
+    if expiration_date:
+        if getdate(expiration_date) >= getdate(today()):
+            is_active = True
+            days_left = date_diff(expiration_date, today())
+            
+    return {
+        "success": True,
+        "is_active": is_active,
+        "expiration_date": expiration_date,
+        "days_left": days_left
+    }
+
+@frappe.whitelist()
+def create_subscription_order(package_type):
+    user = frappe.session.user
+    if package_type not in ["Monthly", "Yearly"]:
+        return {"success": False, "message": "Gói không hợp lệ."}
+        
+    amount = 199000 if package_type == "Monthly" else 1099000
+    
+    order = frappe.get_doc({
+        "doctype": "FC AI Subscription Order",
+        "teacher": user,
+        "package_type": package_type,
+        "amount": amount,
+        "status": "Pending"
+    })
+    order.insert(ignore_permissions=True)
+    frappe.db.commit()
+    
+    return {
+        "success": True,
+        "order_code": order.name,
+        "amount": amount
+    }
