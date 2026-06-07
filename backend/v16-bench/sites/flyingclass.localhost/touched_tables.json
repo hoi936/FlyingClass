@@ -1,17 +1,15 @@
 [
-    "tabFC Teacher Profile",
-    "tabTag",
-    "tabDocField",
-    "tabDocType State",
-    "tabDocType Link",
-    "tabFC",
-    "tabDocType Action",
     "tabInstalled",
-    "tabInstalled Application",
-    "tabTag Link",
-    "tabNavbar Item",
+    "tabDocField",
+    "tabDocType Link",
     "tabSingles",
+    "tabTag",
     "tabDocType",
+    "tabTag Link",
+    "tabInstalled Application",
+    "tabNavbar Item",
+    "tabDocType State",
+    "tabDocPerm",
     "tabNavbar",
-    "tabDocPerm"
+    "tabDocType Action"
 ]

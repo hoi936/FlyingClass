@@ -1,6 +1,6 @@
 import frappe
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_user_info():
     user = frappe.session.user
     if user == 'Guest':
@@ -13,3 +13,9 @@ def get_user_info():
         'full_name': user_doc.full_name,
         'roles': roles
     }
+
+
+
+
+
+

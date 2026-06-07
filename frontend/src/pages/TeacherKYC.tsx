@@ -72,7 +72,19 @@ const TeacherKYC = () => {
       await checkAuth();
       setIsEditing(false);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật hồ sơ');
+      let errMsg = 'Có lỗi xảy ra khi cập nhật hồ sơ';
+      if (err.response?.data?._server_messages) {
+        try {
+          const messages = JSON.parse(err.response.data._server_messages);
+          if (messages.length > 0) {
+            const parsedMsg = JSON.parse(messages[0]);
+            errMsg = parsedMsg.message || errMsg;
+          }
+        } catch (e) {}
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      }
+      setError(errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +110,7 @@ const TeacherKYC = () => {
               {user?.id_card_image && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-600 dark:text-slate-400 text-sm">CCCD/CMND:</span>
-                  <a href={`http://127.0.0.1:8001${user.id_card_image}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline text-sm flex items-center">
+                  <a href={`${import.meta.env.VITE_API_URL || ''}${user.id_card_image}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline text-sm flex items-center">
                     Xem file
                   </a>
                 </div>
@@ -106,7 +118,7 @@ const TeacherKYC = () => {
               {user?.certificate_image && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-600 dark:text-slate-400 text-sm">Bằng cấp:</span>
-                  <a href={`http://127.0.0.1:8001${user.certificate_image}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline text-sm flex items-center">
+                  <a href={`${import.meta.env.VITE_API_URL || ''}${user.certificate_image}`} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline text-sm flex items-center">
                     Xem file
                   </a>
                 </div>

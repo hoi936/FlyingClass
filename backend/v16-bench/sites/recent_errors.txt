@@ -1,0 +1,605 @@
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0165)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ac390c0>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x7d2b0ac39640>
+      compose = <function Document.hook.<locals>.compose at 0x7d2b0ac39380>
+      f = <function Document.run_method.<locals>.fn at 0x7d2b0ac390c0>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x7d2b0ac394e0>
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ac390c0>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0165)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ac39010>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x7d2b0ac394e0>
+      compose = <function Document.hook.<locals>.compose at 0x7d2b0ac39380>
+      f = <function Document.run_method.<locals>.fn at 0x7d2b0ac39010>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x7d2b0ac390c0>
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ac39010>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0164)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ad53a00>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x7d2b0ad53c10>
+      compose = <function Document.hook.<locals>.compose at 0x7d2b0ad53ab0>
+      f = <function Document.run_method.<locals>.fn at 0x7d2b0ad53a00>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x7d2b0ad53950>
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b0ad53a00>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0164)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b289fcd50>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x7d2b282f4e00>
+      compose = <function Document.hook.<locals>.compose at 0x7d2b289fcb40>
+      f = <function Document.run_method.<locals>.fn at 0x7d2b289fcd50>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x7d2b289fc9e0>
+      fn = <function Document.run_method.<locals>.fn at 0x7d2b289fcd50>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0163)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x70768602d170>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x70768602d6f0>
+      compose = <function Document.hook.<locals>.compose at 0x70768602d430>
+      f = <function Document.run_method.<locals>.fn at 0x70768602d170>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x70768602d590>
+      fn = <function Document.run_method.<locals>.fn at 0x70768602d170>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0163)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x70768602d0c0>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x70768602d590>
+      compose = <function Document.hook.<locals>.compose at 0x70768602d430>
+      f = <function Document.run_method.<locals>.fn at 0x70768602d0c0>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x70768602d170>
+      fn = <function Document.run_method.<locals>.fn at 0x70768602d0c0>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0162)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x707686143ab0>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x707686143cc0>
+      compose = <function Document.hook.<locals>.compose at 0x707686143b60>
+      f = <function Document.run_method.<locals>.fn at 0x707686143ab0>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x707686143a00>
+      fn = <function Document.run_method.<locals>.fn at 0x707686143ab0>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0162)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x70769fefcd50>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x70769f7f8e00>
+      compose = <function Document.hook.<locals>.compose at 0x70769fefcb40>
+      f = <function Document.run_method.<locals>.fn at 0x70769fefcd50>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x70769fefc9e0>
+      fn = <function Document.run_method.<locals>.fn at 0x70769fefcd50>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Error Attaching File ---
+Traceback with variables (most recent call last):
+  File "apps/frappe/frappe/core/doctype/file/utils.py", line 371, in attach_files_to_document
+    file.insert(ignore_permissions=True)
+      doc = FC Teacher Profile (TCP-2026-0160)
+      event = 'on_update'
+      attach_fields = [DocField (m2inl7q2sg), DocField (m2icemelvl), DocField (m2i95lsfbb), DocField (m2iccjfq34)]
+      df = DocField (m2iccjfq34)
+      value = '/files/test_certificate.png'
+      unattached_file = None
+      file = File (unsaved)
+  File "apps/frappe/frappe/model/document.py", line 441, in insert
+    self.run_method("before_insert")
+      self = File (unsaved)
+      ignore_permissions = True
+      ignore_links = None
+      ignore_if_duplicate = False
+      ignore_mandatory = None
+      set_name = None
+      set_child_names = True
+  File "apps/frappe/frappe/model/document.py", line 1184, in run_method
+    out = Document.hook(fn)(self, *args, **kwargs)
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      fn = <function Document.run_method.<locals>.fn at 0x746ed5ed6560>
+  File "apps/frappe/frappe/model/document.py", line 1581, in composer
+    return composed(self, method, *args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      hooks = []
+      method = 'before_insert'
+      doc_events = {'*': {'on_update': ['frappe.desk.notifications.clear_doctype_notifications', 'frappe.workflow.doctype.workflow_action.workflow_action.process_workflow_actions', 'frappe.core.doctype.file.utils.attach_files_to_document', 'frappe.automation.doctype.assignment_rule.assignment_rule.apply', 'frappe.automation.doctype.assignment_rule.assignment_rule.update_due_date', 'frappe.core.doctype.user_type.user_type.apply_permissions_for_non_standard_user_type', 'frappe.core.doctype.permission_log.permission_log.make_perm_log', 'frappe.search.sqlite_search.update_doc_index'], 'after_rename': ['frappe.desk.notifications.clear_doctype_notifications'], 'on_cancel': ['frappe.desk.notifications.clear_doctype_n..._contacts'], 'on_update': ['frappe.integrations.doctype.google_contacts.google_contacts.update_contacts_to_google_contacts']}, 'DocType': {'on_update': ['frappe.cache_manager.build_domain_restricted_doctype_cache']}, 'Page': {'on_update': ['frappe.cache_manager.build_domain_restricted_page_cache']}}
+      composed = <function Document.hook.<locals>.compose.<locals>.runner at 0x746ed5ed61f0>
+      compose = <function Document.hook.<locals>.compose at 0x746ed5ed6140>
+      f = <function Document.run_method.<locals>.fn at 0x746ed5ed6560>
+  File "apps/frappe/frappe/model/document.py", line 1559, in runner
+    add_to_return_value(self, fn(self, *args, **kwargs))
+      self = File (unsaved)
+      method = 'before_insert'
+      args = ()
+      kwargs = {}
+      add_to_return_value = <function Document.hook.<locals>.add_to_return_value at 0x746ed5ed6770>
+      fn = <function Document.run_method.<locals>.fn at 0x746ed5ed6560>
+      hooks = ()
+  File "apps/frappe/frappe/model/document.py", line 1181, in fn
+    return method_object(*args, **kwargs)
+      self = File (unsaved)
+      args = ()
+      kwargs = {}
+      method_object = <bound method File.before_insert of <File: doctype=File unsaved>>
+      method = 'before_insert'
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 134, in before_insert
+    self.save_file(content=self.get_content())
+      self = File (unsaved)
+  File "apps/frappe/frappe/core/doctype/file/file.py", line 677, in get_content
+    with open(file_path, mode="rb") as f:
+      self = File (unsaved)
+      encodings = ('utf-8-sig', 'utf-8', 'windows-1250', 'windows-1252')
+      file_path = './flyingclass.localhost/public/files/test_certificate.png'
+builtins.FileNotFoundError: [Errno 2] No such file or directory: './flyingclass.localhost/public/files/test_certificate.png'
+
+--- Profile Update Error ---
+Traceback (most recent call last):
+  File "apps/flying_class/flying_class/flying_class/api.py", line 1722, in update_student_profile
+    user_doc.save(ignore_permissions=True)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "apps/frappe/frappe/model/document.py", line 518, in save
+    return self._save(*args, **kwargs)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "apps/frappe/frappe/model/document.py", line 548, in _save
+    self.check_if_latest()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "apps/frappe/frappe/model/document.py", line 1036, in check_if_latest
+    frappe.msgprint(
+    ~~~~~~~~~~~~~~~^
+    	_(f"Error: {self.name} ({self.doctype}) has been modified after you have opened it")
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    	raise_exception=frappe.TimestampMismatchError,
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "apps/frappe/frappe/utils/messages.py", line 118, in msgprint
+    _raise_exception()
+    ~~~~~~~~~~~~~~~~^^
+  File "apps/frappe/frappe/utils/messages.py", line 59, in _raise_exception
+    raise exc
+frappe.exceptions.TimestampMismatchError: Error: ngovanhuy200905@gmail.com (User) has been modified after you have opened it (2026-05-29 15:10:07.358211, 2026-05-29 15:10:07.375022). Please refresh to get the latest document.
+
+

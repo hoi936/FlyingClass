@@ -11,7 +11,10 @@
   "class_ref",
   "video_url",
   "content",
-  "attachment"
+  "attachment",
+  "chapter_ref",
+  "order_idx",
+  "document_url"
  ],
  "fields": [
   {
@@ -43,12 +46,29 @@
    "fieldname": "attachment",
    "fieldtype": "Attach",
    "label": "Attachment"
+  },
+  {
+   "fieldname": "chapter_ref",
+   "fieldtype": "Link",
+   "label": "Ch\u01b0\u01a1ng",
+   "options": "FC Chapter"
+  },
+  {
+   "default": "1",
+   "fieldname": "order_idx",
+   "fieldtype": "Int",
+   "label": "Th\u1ee9 t\u1ef1"
+  },
+  {
+   "fieldname": "document_url",
+   "fieldtype": "Data",
+   "label": "Link T\u00e0i Li\u1ec7u (PDF/Doc)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-24 15:47:46.612276",
+ "modified": "2026-06-06 15:29:48.219533",
  "modified_by": "Administrator",
  "module": "Flying Class",
  "name": "FC Lesson",
@@ -66,6 +86,27 @@
    "role": "FC Admin",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Teacher",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FC Student",
+   "share": 1
   }
  ],
  "row_format": "Dynamic",

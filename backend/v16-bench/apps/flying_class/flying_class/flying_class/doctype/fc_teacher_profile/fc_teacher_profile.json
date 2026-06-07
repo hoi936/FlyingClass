@@ -18,7 +18,10 @@
   "kyc_section",
   "id_card_image",
   "certificate_image",
-  "rejection_reason"
+  "rejection_reason",
+  "cert_ai_status",
+  "cert_ai_confidence",
+  "cert_ai_checked"
  ],
  "fields": [
   {
@@ -89,12 +92,28 @@
    "fieldname": "rejection_reason",
    "fieldtype": "Data",
    "label": "Rejection Reason"
+  },
+  {
+   "fieldname": "cert_ai_status",
+   "fieldtype": "Data",
+   "label": "AI Verification Status"
+  },
+  {
+   "fieldname": "cert_ai_confidence",
+   "fieldtype": "Float",
+   "label": "AI Verification Confidence"
+  },
+  {
+   "default": "0",
+   "fieldname": "cert_ai_checked",
+   "fieldtype": "Check",
+   "label": "AI Checked"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-24 17:28:30.505926",
+ "modified": "2026-06-06 09:34:01.071618",
  "modified_by": "Administrator",
  "module": "Flying Class",
  "name": "FC Teacher Profile",

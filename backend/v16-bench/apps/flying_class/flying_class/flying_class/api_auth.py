@@ -251,4 +251,73 @@ def custom_login_via_google(code: str = None, state: str = None):
         frappe.local.response["location"] = f"{redirect_to}?{params}"
         return
         
-    login_oauth_user(info, provider="google", state=state)
+    # Find original frontend origin from state
+    import urllib.parse
+    import json
+    import base64
+    import secrets
+
+    redirect_to = "http://localhost:5173/login"
+    try:
+        if isinstance(state, str):
+            decoded_state = json.loads(base64.b64decode(state).decode("utf-8"))
+            original_redirect = decoded_state.get("redirect_to", "")
+            if "127.0.0.1" in original_redirect or "localhost" in original_redirect:
+                parsed = urllib.parse.urlparse(original_redirect)
+                redirect_to = f"{parsed.scheme}://{parsed.netloc}/login"
+    except:
+        pass
+
+    # Ensure the user has Google social login mapped
+    from frappe.utils.oauth import update_oauth_user
+    try:
+        update_oauth_user(email, info, "google")
+    except Exception as e:
+        frappe.logger().error(f"Failed to update oauth user mapping: {str(e)}")
+
+    # Generate login token and store in cache
+    login_token = secrets.token_hex(16)
+    frappe.cache().set_value(f"login_token:{login_token}", email, expires_in_sec=120)
+    
+    frappe.local.response["type"] = "redirect"
+    frappe.local.response["location"] = f"{redirect_to}?token={login_token}"
+
+@frappe.whitelist(allow_guest=True)
+def login_with_token(token):
+    if not token:
+        return {"success": False, "message": "Missing token"}
+        
+    email = frappe.cache().get_value(f"login_token:{token}")
+    if not email:
+        return {"success": False, "message": "Mã xác thực đăng nhập Google đã hết hạn hoặc không hợp lệ!"}
+        
+    # Delete token after use
+    frappe.cache().delete_value(f"login_token:{token}")
+    
+    # Check user existence and status
+    if not frappe.db.exists("User", email):
+        return {"success": False, "message": "Tài khoản không tồn tại!"}
+        
+    user_doc = frappe.get_doc("User", email)
+    if not user_doc.enabled:
+        return {"success": False, "message": f"Tài khoản {email} đang bị khóa!"}
+
+    # Check maintenance mode
+    try:
+        settings = frappe.get_single("FC System Settings")
+        if settings.maintenance_mode:
+            roles = [r.role for r in user_doc.roles]
+            if "FC Admin" not in roles and "System Manager" not in roles and "Administrator" not in roles and user_doc.name != "Administrator":
+                return {"success": False, "message": "Hệ thống đang bảo trì, vui lòng quay lại sau."}
+    except Exception:
+        pass
+
+    # Log in user
+    login_manager = frappe.auth.LoginManager()
+    login_manager.login_as(email)
+    
+    # Save session and commit
+    frappe.db.commit()
+    
+    return {"success": True, "message": "Đăng nhập thành công"}
+

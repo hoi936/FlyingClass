@@ -14,6 +14,7 @@ def get_admin_stats(filter_type="week"):
     today = getdate()
     
     growthData = []
+    revenueData = []
     
     if filter_type == "week":
         # Last 7 days
@@ -25,6 +26,13 @@ def get_admin_stats(filter_type="week"):
             students = frappe.db.count("User", filters={"creation": ("between", [f"{d} 00:00:00", f"{d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Student"}, pluck="parent"))})
             teachers = frappe.db.count("User", filters={"creation": ("between", [f"{d} 00:00:00", f"{d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Teacher"}, pluck="parent"))})
             growthData.append({"name": label, "students": students, "teachers": teachers})
+            rev = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM `tabFC AI Subscription Order`
+                WHERE status IN ('Paid', 'Approved')
+                  AND creation BETWEEN %s AND %s
+            """, (f"{d} 00:00:00", f"{d} 23:59:59"))[0][0] or 0
+            revenueData.append({"name": label, "revenue": int(rev)})
             
     elif filter_type == "month":
         # Last 4 weeks
@@ -35,6 +43,13 @@ def get_admin_stats(filter_type="week"):
             students = frappe.db.count("User", filters={"creation": ("between", [f"{start_d} 00:00:00", f"{end_d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Student"}, pluck="parent"))})
             teachers = frappe.db.count("User", filters={"creation": ("between", [f"{start_d} 00:00:00", f"{end_d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Teacher"}, pluck="parent"))})
             growthData.append({"name": label, "students": students, "teachers": teachers})
+            rev = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM `tabFC AI Subscription Order`
+                WHERE status IN ('Paid', 'Approved')
+                  AND creation BETWEEN %s AND %s
+            """, (f"{start_d} 00:00:00", f"{end_d} 23:59:59"))[0][0] or 0
+            revenueData.append({"name": label, "revenue": int(rev)})
             
     elif filter_type == "year":
         # Last 12 months
@@ -48,18 +63,20 @@ def get_admin_stats(filter_type="week"):
             students = frappe.db.count("User", filters={"creation": ("between", [f"{start_d} 00:00:00", f"{end_d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Student"}, pluck="parent"))})
             teachers = frappe.db.count("User", filters={"creation": ("between", [f"{start_d} 00:00:00", f"{end_d} 23:59:59"]), "name": ("in", frappe.get_all("Has Role", filters={"role": "FC Teacher"}, pluck="parent"))})
             growthData.append({"name": label, "students": students, "teachers": teachers})
+            rev = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM `tabFC AI Subscription Order`
+                WHERE status IN ('Paid', 'Approved')
+                  AND creation BETWEEN %s AND %s
+            """, (f"{start_d} 00:00:00", f"{end_d} 23:59:59"))[0][0] or 0
+            revenueData.append({"name": label, "revenue": int(rev)})
 
     return {
         "total_students": total_students,
         "total_teachers": total_teachers,
         "total_classes": total_classes,
         "growthData": growthData,
-        "revenueData": [
-            { "name": 'Tuần 1', "revenue": 4000000 },
-            { "name": 'Tuần 2', "revenue": 3000000 },
-            { "name": 'Tuần 3', "revenue": 2000000 },
-            { "name": 'Tuần 4', "revenue": 2780000 },
-        ]
+        "revenueData": revenueData
     }
 
 @frappe.whitelist()
@@ -67,7 +84,7 @@ def get_all_users():
     if "FC Admin" not in frappe.get_roles(frappe.session.user):
         frappe.throw(_("Không có quyền truy cập"), frappe.PermissionError)
 
-    users = frappe.get_all("User", fields=["name", "full_name", "email", "creation as joinDate", "enabled"])
+    users = frappe.get_all("User", fields=["name", "full_name", "email", "creation as joinDate", "enabled", "custom_ai_package_type", "custom_ai_expiration_date"])
     
     result = []
     for u in users:
@@ -81,6 +98,13 @@ def get_all_users():
             role = "FC Student"
         
         status_str = "Active" if u.enabled else "Inactive"
+        ai_expiration_date = u.get("custom_ai_expiration_date")
+        ai_subscription_active = False
+        ai_package_type = ""
+        if role == "FC Teacher" and ai_expiration_date:
+            from frappe.utils import getdate, today
+            ai_subscription_active = getdate(ai_expiration_date) >= getdate(today())
+            ai_package_type = u.get("custom_ai_package_type") or "Normal"
             
         result.append({
             "id": u.name,
@@ -88,7 +112,10 @@ def get_all_users():
             "email": u.email,
             "role": role,
             "status": status_str,
-            "joinDate": u.joinDate.strftime("%Y-%m-%d") if u.joinDate else ""
+            "joinDate": u.joinDate.strftime("%Y-%m-%d") if u.joinDate else "",
+            "ai_subscription_active": ai_subscription_active,
+            "ai_expiration_date": ai_expiration_date,
+            "ai_package_type": ai_package_type
         })
     return result
 
@@ -152,7 +179,7 @@ def get_kyc_profiles():
     if "FC Admin" not in frappe.get_roles(frappe.session.user):
         frappe.throw(_("Không có quyền truy cập"), frappe.PermissionError)
 
-    profiles = frappe.get_all("FC Teacher Profile", fields=["name", "full_name", "user as email", "status", "id_card_image", "certificate_image", "rejection_reason"])
+    profiles = frappe.get_all("FC Teacher Profile", fields=["name", "full_name", "user as email", "status", "id_card_image", "certificate_image", "rejection_reason", "cert_ai_status", "cert_ai_confidence", "cert_ai_checked"])
     return profiles
 
 @frappe.whitelist()
@@ -203,6 +230,34 @@ def process_kyc(profile_name, action, reason=""):
         return "Lỗi Backend Admin:\n" + traceback.format_exc()
 
 @frappe.whitelist()
+def run_kyc_ai_scan(profile_name):
+    if "FC Admin" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Không có quyền truy cập"), frappe.PermissionError)
+        
+    profile = frappe.get_doc("FC Teacher Profile", profile_name)
+    if not profile.certificate_image:
+        return {"success": False, "message": "Giáo viên chưa tải lên bằng cấp/chứng chỉ."}
+        
+    from flying_class.flying_class.ai_verification import predict_certificate, get_absolute_path
+    abs_path = get_absolute_path(profile.certificate_image)
+    if not abs_path:
+        return {"success": False, "message": "Không tìm thấy file ảnh của chứng chỉ trên server."}
+        
+    res = predict_certificate(abs_path)
+    profile.cert_ai_status = res.get("status", "Error")
+    profile.cert_ai_confidence = res.get("confidence", 0.0)
+    profile.cert_ai_checked = 1
+    profile.save(ignore_permissions=True)
+    frappe.db.commit()
+    
+    return {
+        "success": True, 
+        "message": "Quét AI hoàn tất", 
+        "cert_ai_status": profile.cert_ai_status, 
+        "cert_ai_confidence": profile.cert_ai_confidence
+    }
+
+@frappe.whitelist()
 def upload_kyc(id_card_url=None, certificate_url=None):
     # This will be called by Teacher to upload KYC
     user = frappe.session.user
@@ -220,6 +275,25 @@ def upload_kyc(id_card_url=None, certificate_url=None):
     if certificate_url:
         profile.certificate_image = certificate_url
         
+        # Run AI Scan
+        try:
+            from flying_class.flying_class.ai_verification import predict_certificate, get_absolute_path
+            abs_path = get_absolute_path(certificate_url)
+            if abs_path:
+                res = predict_certificate(abs_path)
+                profile.cert_ai_status = res.get("status", "Error")
+                profile.cert_ai_confidence = res.get("confidence", 0.0)
+                profile.cert_ai_checked = 1
+            else:
+                profile.cert_ai_status = "Error"
+                profile.cert_ai_confidence = 0.0
+                profile.cert_ai_checked = 1
+        except Exception as e:
+            frappe.logger().error(f"Error invoking AI scan during upload: {str(e)}")
+            profile.cert_ai_status = "Error"
+            profile.cert_ai_confidence = 0.0
+            profile.cert_ai_checked = 1
+        
     profile.status = "Pending"
     profile.rejection_reason = ""
     profile.save(ignore_permissions=True)
@@ -234,7 +308,10 @@ def fix_doctype():
         {"fieldname": "kyc_section", "fieldtype": "Section Break", "label": "KYC Documents"},
         {"fieldname": "id_card_image", "fieldtype": "Attach Image", "label": "ID Card (CCCD)"},
         {"fieldname": "certificate_image", "fieldtype": "Attach Image", "label": "Teaching Certificate"},
-        {"fieldname": "rejection_reason", "fieldtype": "Data", "label": "Rejection Reason", "depends_on": "eval:doc.status=='Rejected'"}
+        {"fieldname": "rejection_reason", "fieldtype": "Data", "label": "Rejection Reason", "depends_on": "eval:doc.status=='Rejected'"},
+        {"fieldname": "cert_ai_status", "fieldtype": "Data", "label": "AI Verification Status"},
+        {"fieldname": "cert_ai_confidence", "fieldtype": "Float", "label": "AI Verification Confidence"},
+        {"fieldname": "cert_ai_checked", "fieldtype": "Check", "label": "AI Checked"}
     ]
     existing_fields = [f.fieldname for f in doc.fields]
     changed = False
@@ -268,7 +345,7 @@ def get_user_profile(email):
 
     if "FC Teacher" in roles:
         # fetch FC Teacher Profile
-        teacher_profile = frappe.db.get_value("FC Teacher Profile", {"user": email}, ["phone", "dob", "cccd_number", "id_card_image", "certificate_image", "status", "rejection_reason"], as_dict=True)
+        teacher_profile = frappe.db.get_value("FC Teacher Profile", {"user": email}, ["phone", "dob", "cccd_number", "id_card_image", "certificate_image", "status", "rejection_reason", "cert_ai_status", "cert_ai_confidence", "cert_ai_checked"], as_dict=True)
         if teacher_profile:
             profile_data.update({
                 "phone": teacher_profile.phone or profile_data["phone"],
@@ -277,8 +354,39 @@ def get_user_profile(email):
                 "id_card_image": teacher_profile.id_card_image,
                 "certificate_image": teacher_profile.certificate_image,
                 "kyc_status": teacher_profile.status,
-                "rejection_reason": teacher_profile.rejection_reason
+                "rejection_reason": teacher_profile.rejection_reason,
+                "cert_ai_status": teacher_profile.cert_ai_status,
+                "cert_ai_confidence": teacher_profile.cert_ai_confidence,
+                "cert_ai_checked": teacher_profile.cert_ai_checked
             })
+        
+        # Add AI subscription details
+        ai_expiration_date = user.get("custom_ai_expiration_date")
+        ai_subscription_active = False
+        ai_package_type = ""
+        used_tokens = 0
+        token_limit = 50000
+        
+        if ai_expiration_date:
+            from frappe.utils import getdate, today
+            ai_subscription_active = getdate(ai_expiration_date) >= getdate(today())
+            ai_package_type = user.get("custom_ai_package_type") or "Normal"
+            token_limit = 120000 if ai_package_type == "Pro" else 50000
+            
+            try:
+                from flying_class.flying_class.api import get_subscription_start_date, get_user_token_usage
+                start_date = get_subscription_start_date(email)
+                used_tokens = get_user_token_usage(email, start_date)
+            except Exception:
+                used_tokens = 0
+        
+        profile_data.update({
+            "ai_expiration_date": str(ai_expiration_date) if ai_expiration_date else "",
+            "ai_subscription_active": ai_subscription_active,
+            "ai_package_type": ai_package_type,
+            "used_tokens": used_tokens,
+            "token_limit": token_limit
+        })
             
     return profile_data
 
@@ -332,16 +440,26 @@ def get_ai_config():
     current_year = datetime.now().year
 
     # Aggregate tokens for the current month
-    tokens = frappe.db.sql("""
-        SELECT SUM(input_tokens) as input_tokens, SUM(output_tokens) as output_tokens
+    tokens_raw = frappe.db.sql("""
+        SELECT model, SUM(input_tokens) as input_tokens, SUM(output_tokens) as output_tokens
         FROM `tabFC AI Token Usage`
         WHERE EXTRACT(MONTH FROM creation) = %s AND EXTRACT(YEAR FROM creation) = %s
+        GROUP BY model
     """, (current_month, current_year), as_dict=True)
 
-    input_tokens = tokens[0].input_tokens or 0 if tokens else 0
-    output_tokens = tokens[0].output_tokens or 0 if tokens else 0
+    input_tokens = 0
+    output_tokens = 0
+    cost_estimation = 0.0
     
-    cost_estimation = (input_tokens * 0.35 / 1000000) + (output_tokens * 1.05 / 1000000)
+    for row in tokens_raw:
+        in_t = row.input_tokens or 0
+        out_t = row.output_tokens or 0
+        input_tokens += in_t
+        output_tokens += out_t
+        if row.model and "gpt" in row.model.lower():
+            cost_estimation += (in_t * 2.50 / 1000000) + (out_t * 10.00 / 1000000)
+        else:
+            cost_estimation += (in_t * 0.35 / 1000000) + (out_t * 1.05 / 1000000)
 
     # Group by day for the chart
     daily_usage = frappe.db.sql("""
@@ -354,8 +472,6 @@ def get_ai_config():
         ORDER BY CAST(creation AS DATE) ASC
     """, (current_month, current_year), as_dict=True)
     
-    # Fill missing days if needed (simple approach: just return days that have data)
-
     return {
         "success": True,
         "message": {
@@ -464,8 +580,7 @@ def get_pending_subscriptions():
         
     orders = frappe.get_all(
         "FC AI Subscription Order",
-        filters={"status": "Pending"},
-        fields=["name", "teacher", "package_type", "amount", "order_code", "creation"],
+        fields=["name", "teacher", "package_type", "amount", "order_code", "creation", "status"],
         order_by="creation desc"
     )
     
@@ -493,20 +608,233 @@ def approve_subscription(order_id, status):
     
     if status == "Approved":
         teacher_user = frappe.get_doc("User", order.teacher)
-        current_exp = teacher_user.get("custom_ai_expiration_date")
         
-        from frappe.utils import add_days, getdate, today
-        
-        start_date = getdate(today())
-        if current_exp and getdate(current_exp) > start_date:
-            start_date = getdate(current_exp)
+        if not str(order.package_type).startswith("Custom_"):
+            current_exp = teacher_user.get("custom_ai_expiration_date")
             
-        days_to_add = 30 if order.package_type == "Monthly" else 365
-        new_exp = add_days(start_date, days_to_add)
-        
-        teacher_user.db_set("custom_ai_expiration_date", new_exp)
+            from frappe.utils import add_days, getdate, today
+            
+            start_date = getdate(today())
+            if current_exp and getdate(current_exp) > start_date:
+                start_date = getdate(current_exp)
+                
+            days_to_add = 30 if order.package_type in ["Monthly", "Pro_Monthly"] else 365
+            new_exp = add_days(start_date, days_to_add)
+            
+            teacher_user.db_set("custom_ai_expiration_date", new_exp)
+            
+            # Set package type
+            tier = "Pro" if "Pro" in order.package_type else "Normal"
+            if any(df.fieldname == "custom_ai_package_type" for df in frappe.get_meta("User").fields):
+                teacher_user.db_set("custom_ai_package_type", tier)
+                
+        if any(df.fieldname == "custom_ai_trial_messages_used" for df in frappe.get_meta("User").fields):
+            teacher_user.db_set("custom_ai_trial_messages_used", 0)
         
     order.save(ignore_permissions=True)
     frappe.db.commit()
     
     return {"success": True, "message": f"Đã {status} đơn hàng thành công"}
+@frappe.whitelist()
+def get_subscription_stats(filter_type="month", selected_date=None):
+    if "FC Admin" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Khong co quyen truy cap"), frappe.PermissionError)
+
+    from frappe.utils import getdate, add_days, add_months, formatdate, today, get_last_day
+    
+    current_date = getdate(today())
+    if selected_date:
+        try:
+            current_date = getdate(selected_date)
+        except Exception:
+            pass
+
+    start_date = None
+    end_date = None
+    trend_type = "daily"
+
+    if filter_type == "week":
+        # Last 7 days
+        start_date = add_days(current_date, -6)
+        end_date = current_date
+        trend_type = "daily"
+    elif filter_type == "month":
+        # Selected month
+        start_date = current_date.replace(day=1)
+        end_date = get_last_day(current_date)
+        trend_type = "daily"
+    elif filter_type == "year":
+        # Selected year (from Jan 1 to Dec 31)
+        start_date = current_date.replace(month=1, day=1)
+        end_date = current_date.replace(month=12, day=31)
+        trend_type = "monthly"
+    elif filter_type == "day":
+        # Specific day
+        start_date = current_date
+        end_date = current_date
+        trend_type = "hourly"
+
+    # 1. Total revenue
+    rev_query = """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM `tabFC AI Subscription Order`
+        WHERE status IN ('Paid', 'Approved')
+    """
+    params = []
+    if start_date and end_date:
+        rev_query += " AND creation BETWEEN %s AND %s"
+        params.extend([f"{start_date} 00:00:00", f"{end_date} 23:59:59"])
+    total_revenue = frappe.db.sql(rev_query, tuple(params))[0][0] or 0
+
+    # 2. Teacher count
+    teacher_query = """
+        SELECT COUNT(DISTINCT teacher)
+        FROM `tabFC AI Subscription Order`
+        WHERE status IN ('Paid', 'Approved')
+    """
+    if start_date and end_date:
+        teacher_query += " AND creation BETWEEN %s AND %s"
+    teacher_count = frappe.db.sql(teacher_query, tuple(params))[0][0] or 0
+
+    # 3. Package breakdown
+    pkg_query = """
+        SELECT package_type as "packageId",
+               COUNT(*) as orders,
+               COALESCE(SUM(amount), 0) as revenue
+        FROM `tabFC AI Subscription Order`
+        WHERE status IN ('Paid', 'Approved')
+    """
+    if start_date and end_date:
+        pkg_query += " AND creation BETWEEN %s AND %s"
+    pkg_query += " GROUP BY package_type ORDER BY package_type"
+    revenue_by_package = frappe.db.sql(pkg_query, tuple(params), as_dict=True)
+
+    # 4. Latest transactions
+    transaction_filters = {"status": ["in", ["Paid", "Approved"]]}
+    if start_date and end_date:
+        transaction_filters["creation"] = ["between", [f"{start_date} 00:00:00", f"{end_date} 23:59:59"]]
+    latest_transactions = frappe.get_all(
+        "FC AI Subscription Order",
+        filters=transaction_filters,
+        fields=[
+            "name", "teacher", "package_type", "amount", "status", "creation",
+            "paid_at", "vnp_transaction_no", "vnp_response_code"
+        ],
+        order_by="paid_at desc, creation desc",
+        limit=50 if filter_type == "day" else 20
+    )
+
+    # 5. Trend Data
+    trend_data = []
+    if trend_type == "daily" and start_date and end_date:
+        loop_end = min(end_date, getdate(today()))
+        day_count = (loop_end - start_date).days + 1
+        if day_count > 0:
+            for i in range(day_count):
+                d = add_days(start_date, i)
+                label = formatdate(d, "dd/MM")
+                rev = frappe.db.sql("""
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM `tabFC AI Subscription Order`
+                    WHERE status IN ('Paid', 'Approved')
+                      AND creation BETWEEN %s AND %s
+                """, (f"{d} 00:00:00", f"{d} 23:59:59"))[0][0] or 0
+                trend_data.append({"name": label, "revenue": int(rev)})
+            
+    elif trend_type == "monthly" and start_date and end_date:
+        for i in range(12):
+            target_date = add_months(start_date, i)
+            month_start = target_date.replace(day=1)
+            month_end = get_last_day(target_date)
+            label = f"T{target_date.month}/{str(target_date.year)[2:]}"
+            rev = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM `tabFC AI Subscription Order`
+                WHERE status IN ('Paid', 'Approved')
+                  AND creation BETWEEN %s AND %s
+            """, (f"{month_start} 00:00:00", f"{month_end} 23:59:59"))[0][0] or 0
+            trend_data.append({"name": label, "revenue": int(rev)})
+            
+    elif trend_type == "hourly" and start_date:
+        intervals = [
+            ("00:00", "03:59", "Đêm"),
+            ("04:00", "07:59", "Sáng sớm"),
+            ("08:00", "11:59", "Sáng"),
+            ("12:00", "15:59", "Chiều"),
+            ("16:00", "19:59", "Tối"),
+            ("20:00", "23:59", "Khuya")
+        ]
+        for start_t, end_t, label in intervals:
+            rev = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM `tabFC AI Subscription Order`
+                WHERE status IN ('Paid', 'Approved')
+                  AND creation BETWEEN %s AND %s
+            """, (f"{start_date} {start_t}:00", f"{start_date} {end_t}:59"))[0][0] or 0
+            trend_data.append({"name": f"{label} ({start_t})", "revenue": int(rev)})
+
+    return {
+        "success": True,
+        "data": {
+            "total_revenue": int(total_revenue),
+            "teacher_count": int(teacher_count),
+            "revenue_by_package": revenue_by_package,
+            "latest_transactions": latest_transactions,
+            "daily_revenue": trend_data,
+        }
+    }
+
+@frappe.whitelist()
+def get_ai_subscriptions(status=None):
+    if "FC Admin" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Khong co quyen truy cap"), frappe.PermissionError)
+
+    filters = {}
+    if status and status != "All":
+        filters["status"] = status
+
+    orders = frappe.get_all(
+        "FC AI Subscription Order",
+        filters=filters,
+        fields=[
+            "name", "teacher", "package_type", "amount", "status", "order_code",
+            "payment_gateway", "creation", "paid_at", "payment_date",
+            "vnp_transaction_no", "vnp_response_code", "vnp_transaction_status"
+        ],
+        order_by="creation desc",
+    )
+
+    for order in orders:
+        order["teacher_name"] = frappe.db.get_value("User", order.teacher, "full_name") or order.teacher
+        order["ai_expiration_date"] = frappe.db.get_value("User", order.teacher, "custom_ai_expiration_date")
+
+    return {"success": True, "data": orders}
+
+@frappe.whitelist()
+def update_user_ai_package(email, ai_expiration_date=None, ai_package_type=None):
+    if "FC Admin" not in frappe.get_roles(frappe.session.user):
+        frappe.throw(_("Không có quyền truy cập"), frappe.PermissionError)
+
+    user = frappe.get_doc("User", email)
+    roles = frappe.get_roles(user.name)
+    if "FC Teacher" not in roles:
+        return {"success": False, "message": "Chỉ giáo viên mới có thể sử dụng gói AI"}
+
+    has_trial_field = any(df.fieldname == "custom_ai_trial_messages_used" for df in frappe.get_meta("User").fields)
+
+    if ai_expiration_date:
+        user.db_set("custom_ai_expiration_date", ai_expiration_date)
+        if has_trial_field:
+            user.db_set("custom_ai_trial_messages_used", 0)
+        
+        # update package type if provided, otherwise default to Normal if not set
+        if ai_package_type:
+            user.db_set("custom_ai_package_type", ai_package_type)
+        elif not user.get("custom_ai_package_type"):
+            user.db_set("custom_ai_package_type", "Normal")
+    else:
+        user.db_set("custom_ai_expiration_date", None)
+        user.db_set("custom_ai_package_type", "Normal")
+        
+    frappe.db.commit()
+    return {"success": True, "message": "Cập nhật gói AI người dùng thành công"}

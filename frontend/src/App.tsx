@@ -9,6 +9,7 @@ import LessonViewer from './pages/LessonViewer';
 import AdminDashboard from './pages/AdminDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherKYC from './pages/TeacherKYC';
+import VnpayReturn from './pages/VnpayReturn';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -61,6 +62,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/vnpay-return" element={<VnpayReturn />} />
         <Route 
           path="/" 
           element={

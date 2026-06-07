@@ -39,9 +39,17 @@ const Register = () => {
     setError(null);
     try {
       const res = await classService.sendOTP(email);
-      setStep(2);
-      if (res && res.message && res.message.message && res.message.message.includes('Dev Mode:')) {
-        alert(res.message.message);
+      if (res && res.message) {
+        if (!res.message.success) {
+          setError(res.message.message || 'Không thể gửi OTP. Vui lòng thử lại.');
+          return;
+        }
+        setStep(2);
+        if (res.message.message && res.message.message.includes('Dev Mode:')) {
+          alert(res.message.message);
+        }
+      } else {
+        setError('Không thể gửi OTP. Vui lòng thử lại.');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Không thể gửi OTP. Vui lòng thử lại.');

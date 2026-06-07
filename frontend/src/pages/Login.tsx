@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/api';
 
 const Login = () => {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading, error } = useAuthStore();
+  const { login, loginWithToken, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
+  const [tokenLoading, setTokenLoading] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      const autoLogin = async () => {
+        setTokenLoading(true);
+        const success = await loginWithToken(token);
+        setTokenLoading(false);
+        if (success) {
+          navigate('/');
+        }
+      };
+      autoLogin();
+    }
+  }, [token]);
   
   const [showForgotPwd, setShowForgotPwd] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -52,9 +69,17 @@ const Login = () => {
     setForgotError(null);
     try {
       const res = await authService.forgotPasswordSendOTP(forgotEmail);
-      setForgotStep(2);
-      if (res && res.message && res.message.includes('Dev Mode:')) {
-        alert(res.message);
+      if (res) {
+        if (!res.success) {
+          setForgotError(res.message || 'Không thể gửi OTP');
+          return;
+        }
+        setForgotStep(2);
+        if (res.message && res.message.includes('Dev Mode:')) {
+          alert(res.message);
+        }
+      } else {
+        setForgotError('Không thể gửi OTP');
       }
     } catch (err: any) {
       setForgotError(err.response?.data?.message || 'Không thể gửi OTP');
@@ -102,6 +127,21 @@ const Login = () => {
       setForgotLoading(false);
     }
   };
+
+  if (tokenLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center items-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px]"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Đang đăng nhập bằng Google...</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Vui lòng chờ trong giây lát</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden">

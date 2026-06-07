@@ -41,3 +41,95 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 1); /* slate-600 */
 }
+
+/* ======================================
+   LIGHT MODE ENHANCEMENTS
+   ====================================== */
+
+/* Main background - subtle gradient instead of plain white */
+:root:not(.dark) body,
+:root:not(.dark) .min-h-screen {
+  background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 40%, #eff6ff 70%, #f0fdf4 100%) !important;
+}
+
+/* Sidebar - warm blue-indigo tint */
+:root:not(.dark) aside {
+  background: linear-gradient(180deg, #eef2ff 0%, #f5f3ff 50%, #eff6ff 100%) !important;
+  border-right-color: #c7d2fe !important;
+}
+
+/* Top Navbar - white with subtle indigo tint */
+:root:not(.dark) nav {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-bottom-color: #c7d2fe !important;
+  box-shadow: 0 1px 16px rgba(99, 102, 241, 0.10) !important;
+}
+
+/* Accent top bar on navbar */
+:root:not(.dark) nav::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #3b82f6, #8b5cf6, #06b6d4);
+}
+:root:not(.dark) nav {
+  position: relative;
+}
+
+/* Main content area - transparent to show body gradient */
+:root:not(.dark) main {
+  background: transparent !important;
+}
+:root:not(.dark) .bg-slate-50 {
+  background: transparent !important;
+}
+
+/* Cards - white with indigo-tinted shadow */
+:root:not(.dark) .bg-white\/60,
+:root:not(.dark) .bg-white\/50,
+:root:not(.dark) .bg-white\/40 {
+  background: rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.09), 0 1px 4px rgba(0,0,0,0.04) !important;
+  border-color: rgba(165, 180, 252, 0.45) !important;
+}
+
+/* Solid white cards */
+:root:not(.dark) .bg-white\/90,
+:root:not(.dark) .bg-white {
+  box-shadow: 0 2px 16px rgba(99, 102, 241, 0.08), 0 1px 3px rgba(0,0,0,0.04) !important;
+}
+
+/* Icon bg areas */
+:root:not(.dark) .bg-blue-500\/10 {
+  background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(59,130,246,0.09)) !important;
+}
+:root:not(.dark) .bg-emerald-500\/10 {
+  background: linear-gradient(135deg, rgba(16,185,129,0.14), rgba(5,150,105,0.08)) !important;
+}
+:root:not(.dark) .bg-orange-500\/10 {
+  background: linear-gradient(135deg, rgba(249,115,22,0.14), rgba(234,88,12,0.08)) !important;
+}
+:root:not(.dark) .bg-indigo-500\/10 {
+  background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(139,92,246,0.09)) !important;
+}
+
+/* Slate-50/80 inputs in light mode - subtle blue tint */
+:root:not(.dark) .bg-slate-50\/80,
+:root:not(.dark) .bg-slate-50\/80 {
+  background: rgba(238, 242, 255, 0.6) !important;
+}
+
+/* Light mode scrollbar */
+:root:not(.dark) .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(199, 210, 254, 0.35);
+}
+:root:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+:root:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.55);
+}

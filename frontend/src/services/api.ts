@@ -132,14 +132,24 @@ export const classService = {
     return res.data.message.documents || [];
   },
 
-  createDocument: async (class_id: string, document_name: string, doc_type: 'Folder' | 'Link', parent_folder?: string | null, link_url?: string) => {
-    const res = await api.post('/api/method/flying_class.flying_class.api.create_document', { class_id, document_name, doc_type, parent_folder, link_url });
+  createDocument: async (class_id: string, document_name: string, doc_type: 'Folder' | 'Link', parent_folder?: string | null, link_url?: string, lesson_ref?: string | null) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.create_document', { class_id, document_name, doc_type, parent_folder, link_url, lesson_ref });
+    return res.data.message;
+  },
+
+  updateDocument: async (doc_id: string, document_name: string, link_url?: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.update_document', { doc_id, document_name, link_url });
     return res.data.message;
   },
 
   deleteDocument: async (doc_id: string) => {
     const res = await api.post('/api/method/flying_class.flying_class.api.delete_document', { doc_id });
     return res.data.message;
+  },
+
+  getDocuments: async (class_id: string, parent_folder?: string | null, lesson_ref?: string | null) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.get_lesson_documents', { class_id, lesson_ref, parent_folder });
+    return res.data.message || [];
   },
 
   toggleStudentChat: async (class_id: string, student_email: string, is_muted: number) => {
@@ -149,6 +159,56 @@ export const classService = {
 
   getStudentProfile: async (student_email: string) => {
     const res = await api.get('/api/method/flying_class.flying_class.api.get_student_profile', { params: { student_email } });
+    return res.data.message;
+  },
+
+  getCourseOutline: async (class_id: string) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_course_outline', { params: { class_id } });
+    return res.data.message;
+  },
+
+  getStudentLearningProgress: async (class_id: string) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_student_learning_progress', { params: { class_id } });
+    return res.data.message;
+  },
+
+  submitChapterTest: async (test_id: string, answers: any) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.submit_chapter_test', { test_id, answers: JSON.stringify(answers) });
+    return res.data.message;
+  },
+
+  createChapter: async (chapter_name: string, class_ref: string, order_idx: number, description: string = "") => {
+    const res = await api.post('/api/resource/FC Chapter', { chapter_name, class_ref, order_idx, description });
+    return res.data.data;
+  },
+
+  createLesson: async (title: string, class_ref: string, chapter_ref: string, video_url: string = "", document_url: string = "", order_idx: number = 1) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.create_lesson_api', { title, class_ref, chapter_ref, video_url, document_url, order_idx });
+    return res.data.message;
+  },
+
+  createChapterTest: async (title: string, chapter_ref: string, pass_score: number, questions: any[]) => {
+    const res = await api.post('/api/resource/FC Chapter Test', { title, chapter_ref, pass_score, status: "Open", questions });
+    return res.data.data;
+  },
+
+  updateChapterTest: async (test_name: string, title: string, pass_score: number, questions: any[]) => {
+    const res = await api.put(`/api/resource/FC Chapter Test/${test_name}`, { title, pass_score, questions });
+    return res.data.data;
+  },
+
+  deleteChapterTest: async (test_name: string) => {
+    const res = await api.delete(`/api/resource/FC Chapter Test/${test_name}`);
+    return res.data;
+  },
+
+  deleteChapter: async (chapter_name: string) => {
+    const res = await api.delete(`/api/resource/FC Chapter/${chapter_name}`);
+    return res.data;
+  },
+
+  deleteLesson: async (lesson_name: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.delete_lesson_api', { lesson_name });
     return res.data.message;
   },
 
@@ -237,7 +297,7 @@ export const classService = {
 
   getSystemSettings: async () => {
     const res = await api.get('/api/method/flying_class.flying_class.api_admin.get_system_settings');
-    return res.data;
+    return res.data.message;
   },
 
   updateSystemSettings: async (maintenance_mode: number) => {
@@ -282,9 +342,31 @@ export const classService = {
     return res.data;
   },
 
+  getAISubscriptions: async (status: string = 'All') => {
+    const res = await api.get('/api/method/flying_class.flying_class.api_admin.get_ai_subscriptions', { params: { status } });
+    return res.data.message;
+  },
+
   approveSubscription: async (order_id: string, status: string) => {
     const res = await api.post('/api/method/flying_class.flying_class.api_admin.approve_subscription', { order_id, status });
-    return res.data;
+    return res.data.message;
+  },
+
+  getSubscriptionStats: async (filterType?: string, selectedDate?: string) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api_admin.get_subscription_stats', {
+      params: { filter_type: filterType, selected_date: selectedDate }
+    });
+    return res.data.message;
+  },
+
+  updateUserAIPackage: async (email: string, ai_expiration_date: string, ai_package_type?: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api_admin.update_user_ai_package', { email, ai_expiration_date, ai_package_type });
+    return res.data.message;
+  },
+
+  runKYCAIScan: async (profile_name: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api_admin.run_kyc_ai_scan', { profile_name });
+    return res.data.message;
   }
 };
 
@@ -292,6 +374,11 @@ export const teacherService = {
   getProfile: async () => {
     const res = await api.get('/api/method/flying_class.flying_class.api.get_my_teacher_profile');
     return res.data.message;
+  },
+
+  getSubscriptionStatus: async () => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_subscription_status');
+    return res.data.message || res.data;
   },
   
   updateProfile: async (full_name: string, id_card_image?: string, certificate_image?: string, dob?: string, cccd_number?: string, phone?: string, avatar_data?: string) => {
@@ -301,7 +388,7 @@ export const teacherService = {
     return res.data.message;
   },
   
-  uploadKYC: async (profileName: string, idCardFile: File, certificateFile: File) => {
+  uploadKYC: async (idCardFile: File, certificateFile: File) => {
     const formData1 = new FormData();
     formData1.append('file', idCardFile);
     formData1.append('is_private', '0');
@@ -411,6 +498,12 @@ export const teacherService = {
     return res.data.message;
   },
 
+  getTokenUsageHistory: async (days: number = 7) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_token_usage_history', { params: { days } });
+    return res.data.message;
+  },
+
+
   // --- CHAT HISTORY APIs ---
   getChatSessions: async () => {
     const res = await api.get('/api/method/flying_class.flying_class.api_chat.get_chat_sessions');
@@ -442,6 +535,11 @@ export const teacherService = {
 
   updateExamInBank: async (exam_name: string, title: string, duration: number, questions: any[]) => {
     const res = await api.post('/api/method/flying_class.flying_class.api.update_exam_in_bank', { exam_name, title, duration, questions });
+    return res.data.message;
+  },
+
+  getClassGradebook: async (class_id: string) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_class_gradebook', { params: { class_id } });
     return res.data.message;
   },
 };
@@ -476,8 +574,82 @@ export const studentService = {
     return res.data;
   },
 
-  createSubscriptionOrder: async (package_type: string) => {
-    const res = await api.post('/api/method/flying_class.flying_class.api.create_subscription_order', { package_type });
+  createSubscriptionOrder: async (package_type: string, amount?: number, teacherId?: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.create_subscription_order', {
+      package_type,
+      packageId: package_type,
+      amount,
+      teacherId
+    });
+    return res.data.message || res.data;
+  },
+
+  testAISubscriptionPayment: async (package_type: string, amount: number, bank_account: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.test_ai_subscription_payment', {
+      package_type,
+      packageId: package_type,
+      amount,
+      bank_account
+    });
+    return res.data.message || res.data;
+  },
+
+  verifyVnpayReturn: async (params: Record<string, string>) => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.vnpay_return', { params });
     return res.data;
+  },
+
+  chatAboutDocument: async (document_id: string, question: string, chat_history?: any[]) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.chat_about_document', {
+      document_id,
+      question,
+      chat_history: chat_history ? JSON.stringify(chat_history) : undefined
+    });
+    return res.data.message;
+  },
+
+  askFlyingClassAI: async (question: string, chat_history?: any[]) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.ask_flyingclass_ai', {
+      question,
+      chat_history: chat_history ? JSON.stringify(chat_history) : undefined
+    });
+    return res.data.message;
+  },
+
+  markNotificationRead: async (notificationId: string) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.mark_notification_read', {
+      notification_id: notificationId
+    });
+    return res.data.message;
+  }
+};
+
+export const teacherRatingService = {
+  rateTeacher: (teacherName: string, studentEmail: string, stars: number, comment: string = '') => {
+    let ratings = JSON.parse(localStorage.getItem('fc_teacher_ratings') || '{}');
+    if (!ratings[teacherName]) ratings[teacherName] = { totalStars: 0, count: 0, ratedBy: [] };
+    
+    const existingIndex = ratings[teacherName].ratedBy.findIndex((r: any) => r.student === studentEmail);
+    if (existingIndex > -1) {
+      ratings[teacherName].totalStars -= ratings[teacherName].ratedBy[existingIndex].stars;
+      ratings[teacherName].ratedBy[existingIndex].stars = stars;
+      ratings[teacherName].ratedBy[existingIndex].comment = comment;
+      ratings[teacherName].totalStars += stars;
+    } else {
+      ratings[teacherName].ratedBy.push({ student: studentEmail, stars, comment });
+      ratings[teacherName].totalStars += stars;
+      ratings[teacherName].count += 1;
+    }
+    localStorage.setItem('fc_teacher_ratings', JSON.stringify(ratings));
+    return { success: true, message: "Đánh giá giáo viên thành công!" };
+  },
+  getTeacherRatingDetails: (teacherName: string) => {
+    let ratings = JSON.parse(localStorage.getItem('fc_teacher_ratings') || '{}');
+    if (!ratings[teacherName] || ratings[teacherName].count === 0) return { average: 0, count: 0, reviews: [] };
+    return { 
+      average: Number((ratings[teacherName].totalStars / ratings[teacherName].count).toFixed(1)), 
+      count: ratings[teacherName].count,
+      reviews: ratings[teacherName].ratedBy 
+    };
   }
 };

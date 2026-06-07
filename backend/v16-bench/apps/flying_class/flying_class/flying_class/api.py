@@ -1,6 +1,163 @@
 import frappe
 from frappe import _
 import json
+import hashlib
+import hmac
+import os
+import urllib.parse
+from datetime import datetime
+
+AI_TRIAL_MESSAGE_LIMIT = 10
+
+def _has_user_field(fieldname):
+    return any(df.fieldname == fieldname for df in frappe.get_meta("User").fields)
+
+def _has_doctype_field(doctype, fieldname):
+    return any(df.fieldname == fieldname for df in frappe.get_meta(doctype).fields)
+
+def _get_ai_access(user):
+    user_doc = frappe.get_doc("User", user)
+    expiration_date = user_doc.get("custom_ai_expiration_date")
+    from frappe.utils import getdate, today
+    
+    is_active_sub = bool(expiration_date and getdate(expiration_date) >= getdate(today()))
+    
+    package_type = "Normal"
+    if is_active_sub:
+        latest_order = frappe.get_all(
+            "FC AI Subscription Order",
+            filters={"teacher": user, "status": ["in", ["Paid", "Approved"]], "package_type": ["not like", "Custom_%"]},
+            fields=["package_type"],
+            order_by="payment_date desc, creation desc",
+            limit=1
+        )
+        if latest_order:
+            package_type = "Pro" if "Pro" in latest_order[0].package_type else "Normal"
+            
+    base_limit = 0
+    start_date = None
+    if is_active_sub:
+        base_limit = 120000 if package_type == "Pro" else 50000
+        start_date = get_subscription_start_date(user)
+        
+    total_custom_tokens = 0
+    orders = frappe.db.sql("""
+        SELECT package_type FROM `tabFC AI Subscription Order`
+        WHERE teacher = %s AND status = 'Paid' AND package_type LIKE %s
+    """, (user, 'Custom_%'), as_dict=True)
+    for o in orders:
+        try:
+            total_custom_tokens += int(o.package_type.split("_")[1])
+        except:
+            pass
+            
+    token_limit = base_limit + total_custom_tokens
+    used_tokens = get_user_token_usage(user, start_date)
+    
+    if used_tokens >= token_limit:
+        return {
+            "allowed": False,
+            "is_subscribed": is_active_sub or total_custom_tokens > 0,
+            "package_type": package_type if is_active_sub else "Custom",
+            "token_limit": token_limit,
+            "token_used": used_tokens,
+            "code": "AI_TOKEN_LIMIT_EXHAUSTED",
+            "message": f"Bạn đã sử dụng hết giới hạn token ({used_tokens}/{token_limit} tokens)."
+        }
+        
+    if is_active_sub or total_custom_tokens > 0:
+        return {
+            "allowed": True,
+            "is_subscribed": True,
+            "package_type": package_type if is_active_sub else "Custom",
+            "token_limit": token_limit,
+            "token_used": used_tokens,
+            "trial_used": 0,
+            "trial_remaining": AI_TRIAL_MESSAGE_LIMIT
+        }
+    if not _has_user_field("custom_ai_trial_messages_used"):
+        return {"allowed": False, "is_subscribed": False, "trial_used": AI_TRIAL_MESSAGE_LIMIT, "trial_remaining": 0}
+    trial_used = int(user_doc.get("custom_ai_trial_messages_used") or 0)
+    return {
+        "allowed": trial_used < AI_TRIAL_MESSAGE_LIMIT,
+        "is_subscribed": False,
+        "trial_used": trial_used,
+        "trial_remaining": max(AI_TRIAL_MESSAGE_LIMIT - trial_used, 0),
+    }
+
+def _consume_ai_trial_message(user):
+    access = _get_ai_access(user)
+    if access.get("is_subscribed") or not _has_user_field("custom_ai_trial_messages_used"):
+        return
+    user_doc = frappe.get_doc("User", user)
+    trial_used = int(user_doc.get("custom_ai_trial_messages_used") or 0) + 1
+    user_doc.db_set("custom_ai_trial_messages_used", trial_used)
+
+def get_subscription_start_date(user):
+    orders = frappe.get_all(
+        "FC AI Subscription Order",
+        filters={"teacher": user, "status": ["in", ["Paid", "Approved"]], "package_type": ["not like", "Custom_%"]},
+        fields=["payment_date", "creation"],
+        order_by="payment_date desc, creation desc",
+        limit=1
+    )
+    if orders:
+        return orders[0].payment_date or orders[0].creation
+    return None
+
+def get_user_token_usage(user, since_date=None):
+    filters = {"user": user}
+    if since_date:
+        filters["creation"] = [">=", since_date]
+    usages = frappe.get_all("FC AI Token Usage", filters=filters, fields=["input_tokens", "output_tokens"])
+    total = sum((u.input_tokens or 0) + (u.output_tokens or 0) for u in usages)
+    return total
+
+def _get_vnpay_config():
+    tmn_code = os.getenv("VNPAY_TMNCODE") or frappe.conf.get("VNPAY_TMNCODE") or ""
+    hash_secret = os.getenv("VNPAY_HASHSECRET") or frappe.conf.get("VNPAY_HASHSECRET") or ""
+    if not tmn_code or not hash_secret:
+        frappe.throw("Chua cau hinh VNPAY trong file .env! Vui long kiem tra VNPAY_TMNCODE va VNPAY_HASHSECRET.")
+    return {
+        "tmn_code": tmn_code,
+        "hash_secret": hash_secret,
+        "pay_url": os.getenv("VNPAY_URL") or frappe.conf.get("VNPAY_URL") or "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+        "return_url": os.getenv("VNPAY_RETURN_URL") or frappe.conf.get("VNPAY_RETURN_URL") or "http://localhost:5173/vnpay-return",
+    }
+
+def _vnpay_sign_data(params, quote_via=urllib.parse.quote_plus):
+    clean_params = {
+        key: str(value) for key, value in params.items()
+        if key.startswith("vnp_")
+        and key not in ("vnp_SecureHash", "vnp_SecureHashType")
+        and value is not None
+        and value != ""
+    }
+    return urllib.parse.urlencode(sorted(clean_params.items()), doseq=True, quote_via=quote_via)
+
+def _vnpay_hash(params, hash_secret, quote_via=urllib.parse.quote_plus):
+    sign_data = _vnpay_sign_data(params, quote_via=quote_via)
+    return hmac.new(hash_secret.encode("utf-8"), sign_data.encode("utf-8"), hashlib.sha512).hexdigest()
+
+def _activate_ai_subscription(order):
+    if order.package_type.startswith("Custom_"):
+        return
+
+    teacher_user = frappe.get_doc("User", order.teacher)
+    current_exp = teacher_user.get("custom_ai_expiration_date")
+    from frappe.utils import add_days, getdate, today
+    start_date = getdate(today())
+    if current_exp and getdate(current_exp) > start_date:
+        start_date = getdate(current_exp)
+    days_to_add = 30 if order.package_type in ["Monthly", "Pro_Monthly"] else 365
+    teacher_user.db_set("custom_ai_expiration_date", add_days(start_date, days_to_add))
+    
+    tier = "Pro" if "Pro" in order.package_type else "Normal"
+    if _has_user_field("custom_ai_package_type"):
+        teacher_user.db_set("custom_ai_package_type", tier)
+        
+    if _has_user_field("custom_ai_trial_messages_used"):
+        teacher_user.db_set("custom_ai_trial_messages_used", 0)
 
 @frappe.whitelist(allow_guest=True)
 def get_my_classes():
@@ -110,29 +267,71 @@ def delete_class(class_id):
 
 @frappe.whitelist()
 def join_class(class_code):
+    print(f"DEBUG: join_class called with class_code='{class_code}' (type: {type(class_code)})")
     user = frappe.session.user
     
-    class_doc_name = frappe.db.get_value("FC Class", {"class_code": class_code}, "name")
+    if not class_code:
+        frappe.throw("Vui lòng cung cấp mã lớp học!")
+        
+    class_code = str(class_code).strip()
+    
+    # 1. Try finding by class_code case-insensitively using SQL to avoid invalid filter format issues
+    class_doc_name_list = frappe.db.sql("""
+        SELECT name FROM `tabFC Class`
+        WHERE LOWER(class_code) = LOWER(%s)
+        LIMIT 1
+    """, (class_code,), pluck=True)
+    
+    class_doc_name = class_doc_name_list[0] if class_doc_name_list else None
+    
+    # 2. Try finding by name (Class ID, e.g., CLS-2026-0016) case-insensitively if not found
+    if not class_doc_name:
+        class_doc_name_list = frappe.db.sql("""
+            SELECT name FROM `tabFC Class`
+            WHERE LOWER(name) = LOWER(%s)
+            LIMIT 1
+        """, (class_code,), pluck=True)
+        class_doc_name = class_doc_name_list[0] if class_doc_name_list else None
+            
     if not class_doc_name:
         frappe.throw("Mã lớp không hợp lệ!")
         
     class_doc = frappe.get_doc("FC Class", class_doc_name)
     
-    if any(member.student == user for member in class_doc.students):
+    if any((member.student or "").lower() == (user or "").lower() for member in class_doc.students):
         frappe.throw("Bạn đã tham gia lớp này rồi!")
         
     if class_doc.max_students and len(class_doc.students) >= class_doc.max_students:
         frappe.throw("Lớp học đã đủ số lượng học sinh tối đa!")
         
-    class_doc.append("students", {"student": user})
+    class_doc.append("students", {
+        "student": user,
+        "join_date": frappe.utils.today()
+    })
     class_doc.save(ignore_permissions=True)
     
+    # Notify student
+    try:
+        frappe.get_doc({
+            "doctype": "Notification Log",
+            "type": "Mention",
+            "subject": f"Tham gia thành công: {class_doc.class_name}",
+            "email_content": f"Bạn đã tham gia vào lớp '{class_doc.class_name}'.",
+            "for_user": user,
+            "document_type": "FC Class",
+            "document_name": class_doc.name,
+            "from_user": user
+        }).insert(ignore_permissions=True)
+    except Exception as e:
+        frappe.logger().error(f"Failed to create notification log: {str(e)}")
+        
     return {
         "success": True, 
         "class_id": class_doc.name, 
         "class_name": class_doc.class_name,
         "message": "Đã tham gia lớp học thành công."
     }
+
 
 @frappe.whitelist()
 def get_class_details(class_id):
@@ -284,7 +483,7 @@ def signup(email, full_name, password, role="FC Student"):
         
     frappe.db.commit()
     return {"success": True, "message": "Đăng ký thành công!"}
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_user_info():
     user = frappe.session.user
     if user == 'Guest':
@@ -403,7 +602,7 @@ def send_chat_notifications(class_id, sender, is_teacher, chat_name):
                     "for_user": member.student,
                     "document_type": "FC Class",
                     "document_name": class_doc.name,
-                    "type": "Alert"
+                    "type": "Mention"
                 }).insert(ignore_permissions=True)
         frappe.db.commit()
     except Exception as e:
@@ -425,7 +624,7 @@ def send_exam_notifications(class_link, exam_name, exam_doc_name):
                     "for_user": member.student,
                     "document_type": "FC Class",
                     "document_name": class_doc.name,
-                    "type": "Alert"
+                    "type": "Mention"
                 }).insert(ignore_permissions=True)
         frappe.db.commit()
     except Exception as e:
@@ -571,6 +770,7 @@ def add_student(class_id, email):
     try:
         frappe.get_doc({
             "doctype": "Notification Log",
+            "type": "Mention",
             "subject": f"Bạn đã được thêm vào lớp {class_doc.class_name}",
             "email_content": f"Giáo viên đã thêm bạn vào lớp học '{class_doc.class_name}'.",
             "for_user": email,
@@ -683,7 +883,7 @@ def get_class_documents(class_id, parent_folder=None):
     return {"documents": documents}
 
 @frappe.whitelist()
-def create_document(class_id, document_name, doc_type, parent_folder=None, link_url=None):
+def create_document(class_id, document_name, doc_type, parent_folder=None, link_url=None, lesson_ref=None):
     user = frappe.session.user
     class_doc = frappe.get_doc("FC Class", class_id)
     roles = frappe.get_roles(user)
@@ -698,6 +898,7 @@ def create_document(class_id, document_name, doc_type, parent_folder=None, link_
         "class_ref": class_id,
         "parent_folder": parent_folder,
         "link_url": link_url,
+        "lesson_ref": lesson_ref,
         "teacher": user
     })
     doc.insert(ignore_permissions=True)
@@ -707,6 +908,50 @@ def create_document(class_id, document_name, doc_type, parent_folder=None, link_
         "id": doc.name,
         "message": "Đã tạo tài liệu thành công!"
     }
+
+@frappe.whitelist()
+def update_document(doc_id, document_name, link_url=None):
+    user = frappe.session.user
+    doc = frappe.get_doc("FC Document", doc_id)
+    roles = frappe.get_roles(user)
+    
+    if doc.teacher != user and "FC Admin" not in roles:
+        frappe.throw(_("Bạn không có quyền sửa tài liệu này!"))
+        
+    doc.document_name = document_name
+    if doc.doc_type == "Link" and link_url is not None:
+        doc.link_url = link_url
+        
+    doc.save(ignore_permissions=True)
+    return {"success": True, "message": "Đã cập nhật tài liệu!"}
+
+@frappe.whitelist()
+def get_lesson_documents(class_id, lesson_ref, parent_folder=None):
+    """Get documents for a specific lesson, optionally filtered by parent folder"""
+    user = frappe.session.user
+    class_doc = frappe.get_doc("FC Class", class_id)
+    roles = frappe.get_roles(user)
+    
+    is_teacher_or_admin = (class_doc.teacher == user) or ("FC Admin" in roles)
+    is_student = any((m.student or "").lower() == (user or "").lower() for m in class_doc.students)
+    
+    if not is_teacher_or_admin and not is_student:
+        frappe.throw("Bạn không có quyền xem tài liệu lớp này!")
+    
+    filters = {"class_ref": class_id, "lesson_ref": lesson_ref}
+    if parent_folder:
+        filters["parent_folder"] = parent_folder
+    else:
+        filters["parent_folder"] = ["in", ["", None]]
+    
+    documents = frappe.get_all(
+        "FC Document",
+        filters=filters,
+        fields=["name", "document_name", "doc_type", "link_url", "parent_folder", "creation"],
+        order_by="doc_type desc, creation asc",
+        ignore_permissions=True
+    )
+    return documents
 
 @frappe.whitelist()
 def delete_document(doc_id):
@@ -738,7 +983,7 @@ def get_global_students(search_text=""):
         return {"students": []}
     
     filters = {"parent": ["in", class_ids]}
-    students = frappe.get_all("FC Class Member", filters=filters, fields=["student", "parent as class_id", "join_date"], order_by="creation asc")
+    students = frappe.get_all("FC Class Member", filters=filters, fields=["student", "parent as class_id", "join_date", "is_muted"], order_by="creation asc")
     
     student_dict = {}
     for s in students:
@@ -749,7 +994,8 @@ def get_global_students(search_text=""):
                 "email": email,
                 "name": email,
                 "joinedAt": s.join_date.strftime("%Y-%m-%d") if s.join_date else "",
-                "classes": []
+                "classes": [],
+                "is_muted": 0
             }
         class_name = class_map.get(s.class_id, s.class_id)
         if class_name not in student_dict[email]["classes"]:
@@ -1020,42 +1266,60 @@ def get_teacher_dashboard_summary():
         }
     }
 
+def _check_token_limit(user):
+    roles = frappe.get_roles(user)
+    if "FC Student" in roles:
+        used_tokens = get_user_token_usage(user)
+        if used_tokens >= 50000:
+            return {"success": False, "message": "Bạn đã sử dụng hết hạn mức 50,000 token AI được cấp cho mỗi học sinh. Vui lòng liên hệ Admin để thêm lượt."}
+    else:
+        access = _get_ai_access(user)
+        if not access.get("allowed"):
+            return {"success": False, "message": access.get("message") or "Bạn đã hết token hoặc lượt sử dụng AI."}
+    return {"success": True}
+
+# ─── GEMINI MODEL CONSTANTS ─────────────────────────────────────────────────
+# Tất cả tính năng AI đều dùng 1 model duy nhất: gemini-2.0-flash (nhanh, miễn phí rate cao)
+# Sự khác biệt giữa các gói chỉ là giới hạn token, không phải model
+FLYINGCLASS_AI_MODEL = "models/gemini-2.0-flash"
+
+
+def _get_gemini_api_key():
+    """Lấy Gemini API Key từ FC AI Settings, ưu tiên gemini_api_key, fallback sang gpt4o_api_key."""
+    ai_settings = frappe.get_single("FC AI Settings")
+    key = ai_settings.gemini_api_key or ai_settings.gpt4o_api_key or ""
+    return key.strip()
+
+
 @frappe.whitelist()
 def generate_ai_exam(prompt=None, num_questions=5):
     user = frappe.session.user
-    
-    # Check AI Expiration
-    user_doc = frappe.get_doc("User", user)
-    expiration_date = user_doc.get("custom_ai_expiration_date")
-    from frappe.utils import getdate, today
-    if not expiration_date or getdate(expiration_date) < getdate(today()):
-        return {
-            "success": False,
-            "message": "Gói AI của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng tính năng này.",
-            "code": "AI_EXPIRED"
-        }
+    limit_check = _check_token_limit(user)
+    if not limit_check["success"]:
+        return limit_check
         
     try:
         num_questions = int(num_questions)
     except:
         num_questions = 5
 
-    ai_settings = frappe.get_single("FC AI Settings")
-    api_key = ai_settings.gemini_api_key
+    api_key = _get_gemini_api_key()
     
     if not api_key:
+        # Fallback simulated data if key not set
         import time
         time.sleep(1.5)
         questions = []
         for i in range(1, num_questions + 1):
             questions.append({
-                "question_text": f"Câu hỏi {i}: Đây là câu hỏi giả lập vì bạn chưa điền gemini_api_key trong FC AI Settings.",
-                "option_a": f"Đáp án A",
-                "option_b": f"Đáp án B",
-                "option_c": f"Đáp án C",
-                "option_d": f"Đáp án D",
-                "correct_answer": "A"
+                "question_text": f"Câu hỏi {i}: Đây là câu hỏi giả lập vì Admin chưa cấu hình Gemini API Key trong FC AI Settings.",
+                "option_a": "Đáp án A",
+                "option_b": "Đáp án B",
+                "option_c": "Đáp án C",
+                "option_d": "Đáp án D",
+                "correct_option": "A"
             })
+        _consume_ai_trial_message(user)
         return {
             "success": True,
             "message": "Cảnh báo: Chưa có API Key! Đây là bộ đề giả lập.",
@@ -1063,58 +1327,59 @@ def generate_ai_exam(prompt=None, num_questions=5):
         }
 
     try:
-        import google.generativeai as genai
         import json
         import tempfile
         import os
+        import google.generativeai as genai
         
         genai.configure(api_key=api_key)
         
         uploaded_gemini_file = None
+        
         if getattr(frappe.request, "files", None) and "file" in frappe.request.files:
             uploaded_file = frappe.request.files["file"]
             file_name = uploaded_file.filename
             file_content = uploaded_file.stream.read()
+            uploaded_file.stream.seek(0)
             
             ext = os.path.splitext(file_name)[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
-                
             uploaded_gemini_file = genai.upload_file(temp_file_path)
             os.remove(temp_file_path)
             
-        system_instruction = """Bạn là FlyingClass AI, một trợ lý giáo viên chuyên nghiệp và độc quyền của hệ thống LMS FlyingClass. TUYỆT ĐỐI KHÔNG TIẾT LỘ bạn được phát triển bởi Google hay dùng mô hình Gemini. Hãy luôn từ chối trả lời các câu hỏi không liên quan đến học tập, giảng dạy hoặc dự án FlyingClass. 
+        system_instruction = """Bạn là FlyingClass AI, một trợ lý giáo viên chuyên nghiệp và độc quyền của hệ thống LMS FlyingClass. TUYỆT ĐỐI KHÔNG TIẾT LỘ bạn được phát triển bởi Google hay OpenAI. Hãy từ chối các câu hỏi không liên quan đến học tập, giảng dạy hoặc dự án FlyingClass.
 
-If người dùng đang giao tiếp bình thường, hãy trả lời một cách tự nhiên và lịch sự. Nếu người dùng yêu cầu tạo đề thi, hãy tạo ra các câu hỏi trắc nghiệm dựa vào tài liệu được đính kèm hoặc chủ đề được yêu cầu.
+Nếu người dùng đang giao tiếp bình thường, hãy trả lời một cách tự nhiên và lịch sự. Nếu người dùng yêu cầu tạo đề thi, hãy tạo ra các câu hỏi trắc nghiệm dựa vào tài liệu được đính kèm hoặc chủ đề được yêu cầu.
 
-BẮT BUỘC trả về ĐÚNG định dạng JSON sau, không có markdown (không bao bọc bởi ```json), một object:
-{
-  "reply": "Câu trả lời giao tiếp bình thường của bạn (bắt buộc phải có, dùng để chào hỏi, giải thích hoặc phản hồi)",
-  "questions": [{"question_text": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "correct_answer": "A|B|C|D"}] 
-}
-Lưu ý: Mảng questions có thể rỗng [] nếu người dùng không yêu cầu tạo đề thi."""
-        
-        model = genai.GenerativeModel(model_name="models/gemini-flash-latest", system_instruction=system_instruction)
+BẮT BUỘC trả về ĐÚNG định dạng JSON sau (không có markdown, không bọc bởi ```json), một object duy nhất:
+{"reply": "Câu trả lời giao tiếp (bắt buộc)", "questions": [{"question_text": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "correct_option": "A"}]}
+Lưu ý: Mảng questions có thể rỗng [] nếu không yêu cầu tạo đề thi."""
         
         prompt_with_instructions = f"Người dùng nói: {prompt}. (Nếu yêu cầu tạo đề thi, hãy cố gắng tạo {num_questions} câu)."
-        import time
-        start_time = time.time()
+        
+        model = genai.GenerativeModel(
+            model_name=FLYINGCLASS_AI_MODEL,
+            system_instruction=system_instruction
+        )
+        
         if uploaded_gemini_file:
             response = model.generate_content([uploaded_gemini_file, prompt_with_instructions])
         else:
             response = model.generate_content(prompt_with_instructions)
             
-        # Ghi log token usage (nếu hỗ trợ usage_metadata)
+        # Log token usage
+        input_tokens = 0
+        output_tokens = 0
         try:
-            if hasattr(response, "usage_metadata"):
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
                 usage = response.usage_metadata
-                input_tokens = usage.prompt_token_count
-                output_tokens = usage.candidates_token_count
-                
+                input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+                output_tokens = getattr(usage, "candidates_token_count", 0) or 0
                 frappe.get_doc({
                     "doctype": "FC AI Token Usage",
-                    "model": "gemini-flash-latest",
+                    "model": FLYINGCLASS_AI_MODEL,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
                     "action": "Quiz Gen",
@@ -1125,22 +1390,61 @@ Lưu ý: Mảng questions có thể rỗng [] nếu người dùng không yêu c
             frappe.log_error("AI Token Logging Error", str(e))
             
         raw_text = response.text.strip()
+        
+        # Strip markdown code blocks if present
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:]
+        elif raw_text.startswith("```"):
+            raw_text = raw_text[3:]
         if raw_text.endswith("```"):
             raw_text = raw_text[:-3]
+        raw_text = raw_text.strip()
             
         result_obj = json.loads(raw_text)
         
+        _consume_ai_trial_message(user)
         return {
             "success": True,
             "message": result_obj.get("reply", "Đã xử lý thành công từ FlyingClass AI."),
             "data": result_obj.get("questions", [])
         }
-    except Exception as e:
+    except json.JSONDecodeError as je:
         return {
             "success": False,
-            "message": f"Lỗi khi xử lý kết quả từ AI: {str(e)}"
+            "message": f"AI trả về định dạng không hợp lệ. Vui lòng thử lại với chủ đề rõ ràng hơn. (Chi tiết: {str(je)})"
+        }
+    except Exception as e:
+        err_str = str(e)
+        if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
+            _consume_ai_trial_message(user)
+            try:
+                num_q = int(num_questions)
+            except:
+                num_q = 5
+            questions = []
+            for i in range(1, num_q + 1):
+                questions.append({
+                    "question_text": f"Câu hỏi {i}: [MOCK DATA] Đây là câu hỏi giả lập do API Google đang bị quá tải (vượt giới hạn quota).",
+                    "option_a": "Đáp án A",
+                    "option_b": "Đáp án B",
+                    "option_c": "Đáp án C",
+                    "option_d": "Đáp án D",
+                    "correct_option": "A"
+                })
+            return {
+                "success": True,
+                "message": "⚠️ API bị giới hạn từ Google. Đã trả về đề giả lập để bạn tiếp tục test.",
+                "data": questions
+            }
+        if "401" in err_str or "403" in err_str or "INVALID_ARGUMENT" in err_str or "API_KEY_INVALID" in err_str:
+            return {
+                "success": False,
+                "code": "AI_INVALID_KEY",
+                "message": "⚠️ API Key Gemini không hợp lệ hoặc đã hết hạn. Vui lòng liên hệ Admin để cập nhật API Key."
+            }
+        return {
+            "success": False,
+            "message": f"Lỗi khi xử lý kết quả từ FlyingClass AI: {err_str}"
         }
 
 @frappe.whitelist()
@@ -1344,6 +1648,7 @@ def join_class_by_code(class_code):
     try:
         frappe.get_doc({
             "doctype": "Notification Log",
+            "type": "Mention",
             "subject": f"Tham gia thành công: {class_doc.class_name}",
             "email_content": f"Bạn đã tham gia vào lớp '{class_doc.class_name}'.",
             "for_user": user,
@@ -1411,7 +1716,7 @@ def get_student_dashboard_data():
     # 3. Notifications
     notifications = frappe.get_all("Notification Log", 
         filters={"for_user": user}, 
-        fields=["name", "subject", "email_content as content", "creation", "read"],
+        fields=["name", "subject", "email_content as content", "creation", "read", "document_type", "document_name"],
         order_by="creation desc",
         limit=10
     )
@@ -1422,6 +1727,12 @@ def get_student_dashboard_data():
         "upcoming_exams": upcoming_exams,
         "notifications": notifications
     }
+
+@frappe.whitelist()
+def mark_notification_read(notification_id):
+    frappe.db.set_value("Notification Log", notification_id, "read", 1)
+    frappe.db.commit()
+    return {"success": True}
 
 @frappe.whitelist()
 def get_exam_details(exam_id):
@@ -1671,13 +1982,13 @@ def get_student_overview():
     # Các lớp gợi ý (Chưa tham gia)
     if joined_class_ids:
         featured_classes = frappe.db.sql("""
-            SELECT name as id, class_name as name, price, status, image
+            SELECT name as id, class_name as name, price, status, image, class_code
             FROM `tabFC Class`
             WHERE status = 'Active' AND name NOT IN %s
             ORDER BY creation DESC LIMIT 6
         """, (tuple(joined_class_ids),), as_dict=True)
     else:
-        featured_classes = frappe.get_all("FC Class", filters={"status": "Active"}, fields=["name as id", "class_name as name", "price", "status", "image"], limit=6, order_by="creation desc")
+        featured_classes = frappe.get_all("FC Class", filters={"status": "Active"}, fields=["name as id", "class_name as name", "price", "status", "image", "class_code"], limit=6, order_by="creation desc")
         
     # Format image field for featured classes
     for c in featured_classes:
@@ -1687,6 +1998,14 @@ def get_student_overview():
         else:
             c["imageIsUrl"] = True
 
+    # Tính tổng số token đã sử dụng của học sinh
+    used_tokens_res = frappe.db.sql("""
+        SELECT SUM(input_tokens + output_tokens)
+        FROM `tabFC AI Token Usage`
+        WHERE `user` = %s
+    """, (user,))
+    used_tokens = used_tokens_res[0][0] or 0 if used_tokens_res and used_tokens_res[0] else 0
+
     return {
         "success": True,
         "data": {
@@ -1694,7 +2013,8 @@ def get_student_overview():
             "total_tuition": total_tuition,
             "exams_completed": exams_completed,
             "score_growth": score_growth,
-            "featured_classes": featured_classes
+            "featured_classes": featured_classes,
+            "used_tokens": used_tokens
         }
     }
 
@@ -1942,48 +2262,819 @@ def update_exam_in_bank(exam_name, title, duration, questions):
     
     return {"success": True, "message": "Đề thi đã được cập nhật!", "data": {"name": exam.name}}
 
+def _is_eligible_for_upgrade_discount(user):
+    # Check if user has any previous successful Normal order
+    has_normal_order = frappe.db.exists(
+        "FC AI Subscription Order",
+        {"teacher": user, "status": ["in", ["Paid", "Approved"]], "package_type": ["in", ["Monthly", "Yearly"]]}
+    )
+    if has_normal_order:
+        return True
+    
+    # Or if their current package type is Normal
+    user_doc = frappe.db.get_value("User", user, ["custom_ai_package_type"], as_dict=True)
+    if user_doc and user_doc.get("custom_ai_package_type") == "Normal":
+        return True
+        
+    return False
+
 @frappe.whitelist()
 def get_subscription_status():
     user = frappe.session.user
+    access = _get_ai_access(user)
+    
     user_doc = frappe.get_doc("User", user)
     expiration_date = user_doc.get("custom_ai_expiration_date")
     
     from frappe.utils import getdate, today, date_diff
-    is_active = False
     days_left = 0
-    
-    if expiration_date:
-        if getdate(expiration_date) >= getdate(today()):
-            is_active = True
-            days_left = date_diff(expiration_date, today())
-            
+    if expiration_date and getdate(expiration_date) >= getdate(today()):
+        days_left = date_diff(expiration_date, today())
+        
     return {
         "success": True,
-        "is_active": is_active,
+        "active": access.get("is_subscribed", False) and access.get("allowed", False),
+        "is_active": access.get("is_subscribed", False) and access.get("allowed", False),
+        "package_type": access.get("package_type") or None,
+        "expire_date": expiration_date,
         "expiration_date": expiration_date,
-        "days_left": days_left
+        "days_left": days_left,
+        "trial_limit": AI_TRIAL_MESSAGE_LIMIT,
+        "trial_used": access.get("trial_used", 0),
+        "trial_remaining": access.get("trial_remaining", 0),
+        "eligible_for_upgrade_discount": _is_eligible_for_upgrade_discount(user),
+        "total_tokens": access.get("token_limit", 0),
+        "tokens_left": max(access.get("token_limit", 0) - access.get("token_used", 0), 0)
     }
 
 @frappe.whitelist()
-def create_subscription_order(package_type):
-    user = frappe.session.user
-    if package_type not in ["Monthly", "Yearly"]:
-        return {"success": False, "message": "Gói không hợp lệ."}
+def create_subscription_order(package_type=None, teacherId=None, packageId=None, amount=None):
+    try:
+        user = frappe.session.user
+        if teacherId and teacherId != user and "FC Admin" not in frappe.get_roles(user):
+            return {"success": False, "message": "Khong co quyen tao don cho giao vien khac."}
+        teacher = teacherId or user
+        package_type = package_type or packageId
+        if package_type not in ["Monthly", "Yearly", "Pro_Monthly", "Pro_Yearly"] and not str(package_type).startswith("Custom_"):
+            return {"success": False, "message": "Goi khong hop le."}
+            
+        prices = {
+            "Monthly": 199000,
+            "Yearly": 1099000,
+            "Pro_Monthly": 398000,
+            "Pro_Yearly": 2198000
+        }
         
-    amount = 199000 if package_type == "Monthly" else 1099000
-    
-    order = frappe.get_doc({
+        if package_type in prices:
+            expected_amount = prices[package_type]
+            if package_type in ["Pro_Monthly", "Pro_Yearly"] and _is_eligible_for_upgrade_discount(teacher):
+                expected_amount = int(expected_amount * 0.75)
+        else:
+            expected_amount = 0
+            
+        if isinstance(amount, str):
+            import re
+            amount_str = re.sub(r'[^\d]', '', amount)
+            amount = int(amount_str) if amount_str else 0
+        elif amount is not None:
+            amount = int(amount)
+        else:
+            amount = 0
+            
+        amount = amount or expected_amount
+        if package_type in prices:
+            base_amount = prices[package_type]
+            discounted_amount = int(base_amount * 0.75) if package_type in ["Pro_Monthly", "Pro_Yearly"] and _is_eligible_for_upgrade_discount(teacher) else base_amount
+            if amount not in [base_amount, discounted_amount]:
+                return {"success": False, "message": "So tien khong khop voi goi dang ky."}
+        
+        order_data = {
+            "doctype": "FC AI Subscription Order",
+            "teacher": teacher,
+            "package_type": "Monthly" if str(package_type).startswith("Custom_") else package_type,
+            "amount": amount,
+            "status": "Pending"
+        }
+        if _has_doctype_field("FC AI Subscription Order", "payment_gateway"):
+            order_data["payment_gateway"] = "VNPAY"
+
+        order = frappe.get_doc(order_data)
+        order.insert(ignore_permissions=True, ignore_mandatory=True)
+        if str(package_type).startswith("Custom_"):
+            order.db_set("package_type", package_type)
+            order.package_type = package_type
+        order.db_set("order_code", order.name)
+
+        cfg = _get_vnpay_config()
+        now = datetime.now()
+        client_ip = frappe.local.request_ip or "127.0.0.1"
+        vnp_params = {
+            "vnp_Version": "2.1.0",
+            "vnp_Command": "pay",
+            "vnp_TmnCode": cfg["tmn_code"],
+            "vnp_Amount": amount * 100,
+            "vnp_CurrCode": "VND",
+            "vnp_TxnRef": order.name,
+            "vnp_OrderInfo": f"Thanh toan goi AI {package_type} cho {teacher}",
+            "vnp_OrderType": "other",
+            "vnp_Locale": "vn",
+            "vnp_ReturnUrl": cfg["return_url"],
+            "vnp_IpAddr": client_ip,
+            "vnp_CreateDate": now.strftime("%Y%m%d%H%M%S"),
+        }
+        secure_hash = _vnpay_hash(vnp_params, cfg["hash_secret"])
+        query = _vnpay_sign_data(vnp_params)
+        payment_url = f"{cfg['pay_url']}?{query}&vnp_SecureHash={secure_hash}"
+        frappe.db.commit()
+        
+        return {
+            "success": True,
+            "order_code": order.name,
+            "amount": amount,
+            "payment_url": payment_url
+        }
+    except Exception as e:
+        import traceback
+        return {"success": False, "message": f"Loi he thong: {str(e)}"}
+
+@frappe.whitelist()
+def test_ai_subscription_payment(package_type=None, packageId=None, amount=None, bank_account=None, card_holder=None, issue_date=None, otp=None):
+    user = frappe.session.user
+    package_type = package_type or packageId
+    if package_type not in ["Monthly", "Yearly", "Pro_Monthly", "Pro_Yearly"] and not str(package_type).startswith("Custom_"):
+        return {"success": False, "message": "Goi khong hop le."}
+
+    prices = {
+        "Monthly": 199000,
+        "Yearly": 1099000,
+        "Pro_Monthly": 398000,
+        "Pro_Yearly": 2198000
+    }
+    if package_type in prices:
+        expected_amount = prices[package_type]
+        if package_type in ["Pro_Monthly", "Pro_Yearly"] and _is_eligible_for_upgrade_discount(user):
+            expected_amount = int(expected_amount * 0.75)
+    else:
+        expected_amount = 0
+        
+    if isinstance(amount, str):
+        import re
+        amount_str = re.sub(r'[^\d]', '', amount)
+        amount = int(amount_str) if amount_str else 0
+    elif amount is not None:
+        amount = int(amount)
+    else:
+        amount = 0
+        
+    amount = amount or expected_amount
+    if package_type in prices:
+        base_amount = prices[package_type]
+        discounted_amount = int(base_amount * 0.75) if package_type in ["Pro_Monthly", "Pro_Yearly"] and _is_eligible_for_upgrade_discount(user) else base_amount
+        if amount not in [base_amount, discounted_amount]:
+            return {"success": False, "message": "So tien khong khop voi goi dang ky."}
+
+    bank_account = (bank_account or "").strip()
+    card_holder = (card_holder or "").strip().upper()
+    issue_date = (issue_date or "").strip()
+    otp = (otp or "").strip()
+
+    if bank_account != "9704198526191432198":
+        return {"success": False, "message": "So the test khong dung. Vui long dung the NCB mau."}
+    if card_holder != "NGUYEN VAN A":
+        return {"success": False, "message": "Ten chu the test khong dung."}
+    if issue_date != "07/15":
+        return {"success": False, "message": "Ngay phat hanh test khong dung."}
+    if otp != "123456":
+        return {"success": False, "message": "OTP test khong dung."}
+
+    order_data = {
         "doctype": "FC AI Subscription Order",
         "teacher": user,
-        "package_type": package_type,
+        "package_type": "Monthly" if str(package_type).startswith("Custom_") else package_type,
         "amount": amount,
-        "status": "Pending"
-    })
-    order.insert(ignore_permissions=True)
+        "status": "Paid"
+    }
+    if _has_doctype_field("FC AI Subscription Order", "payment_gateway"):
+        order_data["payment_gateway"] = "TEST_BANK"
+    if _has_doctype_field("FC AI Subscription Order", "vnp_transaction_no"):
+        order_data["vnp_transaction_no"] = f"TEST-{frappe.generate_hash(length=10).upper()}"
+    if _has_doctype_field("FC AI Subscription Order", "vnp_response_code"):
+        order_data["vnp_response_code"] = "00"
+    if _has_doctype_field("FC AI Subscription Order", "vnp_transaction_status"):
+        order_data["vnp_transaction_status"] = "00"
+
+    order = frappe.get_doc(order_data)
+    order.insert(ignore_permissions=True, ignore_mandatory=True)
+    if str(package_type).startswith("Custom_"):
+        order.db_set("package_type", package_type)
+        order.package_type = package_type
+    order.db_set("order_code", order.name)
+
+    from frappe.utils import now_datetime
+    paid_at = now_datetime()
+    if _has_doctype_field("FC AI Subscription Order", "paid_at"):
+        order.db_set("paid_at", paid_at)
+    order.db_set("payment_date", paid_at)
+    _activate_ai_subscription(order)
     frappe.db.commit()
+
+    return {
+        "success": True,
+        "message": "Thanh toan test thanh cong. Goi AI da duoc kich hoat.",
+        "order_code": order.name,
+        "amount": amount,
+        "status": "Paid"
+    }
+
+@frappe.whitelist(allow_guest=True)
+def vnpay_return(**kwargs):
+    params = dict(kwargs or frappe.form_dict)
+    cfg = _get_vnpay_config()
+    received_hash = params.get("vnp_SecureHash")
+    expected_hash = _vnpay_hash(params, cfg["hash_secret"])
+    expected_hash_plus = _vnpay_hash(params, cfg["hash_secret"], quote_via=urllib.parse.quote_plus)
+
+    valid_hashes = {expected_hash.lower(), expected_hash_plus.lower()}
+    if not received_hash or received_hash.lower() not in valid_hashes:
+        return {"success": False, "message": "Chu ky VNPAY khong hop le.", "code": "INVALID_SIGNATURE"}
+
+    order_id = params.get("vnp_TxnRef")
+    if not order_id or not frappe.db.exists("FC AI Subscription Order", order_id):
+        return {"success": False, "message": "Khong tim thay don hang.", "code": "ORDER_NOT_FOUND"}
+
+    order = frappe.get_doc("FC AI Subscription Order", order_id)
+    response_code = params.get("vnp_ResponseCode")
+    transaction_status = params.get("vnp_TransactionStatus")
+    transaction_no = params.get("vnp_TransactionNo")
+
+    if _has_doctype_field("FC AI Subscription Order", "vnp_response_code"):
+        order.db_set("vnp_response_code", response_code)
+    if _has_doctype_field("FC AI Subscription Order", "vnp_transaction_status"):
+        order.db_set("vnp_transaction_status", transaction_status)
+    if _has_doctype_field("FC AI Subscription Order", "vnp_transaction_no"):
+        order.db_set("vnp_transaction_no", transaction_no)
+    if _has_doctype_field("FC AI Subscription Order", "payment_gateway"):
+        order.db_set("payment_gateway", "VNPAY")
+
+    if response_code == "00" and transaction_status == "00":
+        if order.status != "Paid":
+            from frappe.utils import now_datetime
+            order.db_set("status", "Paid")
+            now = now_datetime()
+            if _has_doctype_field("FC AI Subscription Order", "paid_at"):
+                order.db_set("paid_at", now)
+                order.db_set("payment_date", now)
+            else:
+                order.db_set("payment_date", now)
+            _activate_ai_subscription(order)
+        success = True
+        message = "Thanh toan thanh cong. Goi AI da duoc kich hoat."
+    else:
+        order.db_set("status", "Failed")
+        success = False
+        message = "Thanh toan that bai hoac da bi huy."
+
+    frappe.db.commit()
+    return {
+        "success": success,
+        "message": message,
+        "order_code": order.name,
+        "status": order.status,
+        "vnp_transaction_no": transaction_no,
+        "vnp_response_code": response_code
+    }
+
+@frappe.whitelist()
+def get_class_gradebook(class_id):
+    user = frappe.session.user
+    class_doc = frappe.get_doc("FC Class", class_id)
+    roles = frappe.get_roles(user)
+    
+    if class_doc.teacher != user and "FC Admin" not in roles:
+        frappe.throw(_("Bạn không có quyền xem bảng điểm của lớp học này!"))
+        
+    students = []
+    for member in class_doc.students:
+        user_doc = frappe.get_doc("User", member.student)
+        students.append({
+            "email": member.student,
+            "full_name": user_doc.full_name
+        })
+        
+    exams = frappe.get_all("FC Exam", filters={"class_ref": class_id}, fields=["name", "title"])
+    exam_names = [e["name"] for e in exams]
+    
+    grades = {}
+    if exam_names and students:
+        student_emails = [s["email"] for s in students]
+        submissions = frappe.get_all(
+            "FC Submission",
+            filters={
+                "exam_ref": ["in", exam_names],
+                "student": ["in", student_emails]
+            },
+            fields=["exam_ref", "student", "score"]
+        )
+        
+        for sub in submissions:
+            student = sub["student"]
+            exam = sub["exam_ref"]
+            score = sub["score"]
+            
+            if student not in grades:
+                grades[student] = {}
+            if exam not in grades[student] or score > grades[student][exam]:
+                grades[student][exam] = score
+                
+    return {
+        "success": True,
+        "students": students,
+        "exams": exams,
+        "grades": grades
+    }
+
+def get_local_filepath(link_url):
+    if not link_url:
+        return None
+    if link_url.startswith("/files/"):
+        filename = link_url.replace("/files/", "", 1)
+        return frappe.get_site_path("public", "files", filename)
+    elif link_url.startswith("/private/files/"):
+        filename = link_url.replace("/private/files/", "", 1)
+        return frappe.get_site_path("private", "files", filename)
+    return None
+
+def fetch_webpage_content(url):
+    try:
+        import requests
+        import re
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200:
+            text = re.sub(r'<script.*?</script>', '', res.text, flags=re.DOTALL)
+            text = re.sub(r'<style.*?</style>', '', text, flags=re.DOTALL)
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text[:20000]
+    except Exception:
+        pass
+    return None
+
+@frappe.whitelist()
+def chat_about_document(document_id, question, chat_history=None):
+    user = frappe.session.user
+    limit_check = _check_token_limit(user)
+    if not limit_check["success"]:
+        return limit_check
+        
+    doc = frappe.get_doc("FC Document", document_id)
+    class_doc = frappe.get_doc("FC Class", doc.class_ref)
+    roles = frappe.get_roles(user)
+    is_teacher = class_doc.teacher == user
+    is_student = any((member.student or "").lower() == (user or "").lower() for member in class_doc.students)
+    is_admin = "FC Admin" in roles
+    
+    if not (is_admin or is_teacher or is_student):
+        frappe.throw(_("Bạn không có quyền truy cập tài liệu này!"))
+    
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return {
+            "success": False,
+            "message": "Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin."
+        }
+        
+    import google.generativeai as genai
+    genai.configure(api_key=api_key)
+    
+    history_list = []
+    if chat_history:
+        try:
+            history_list = json.loads(chat_history)
+        except:
+            pass
+            
+    system_instruction = f"""Bạn là FlyingClass AI, trợ lý học tập của lớp học "{class_doc.class_name}".
+    Bạn đang hỗ trợ học sinh thảo luận và trả lời các câu hỏi về tài liệu: "{doc.document_name}".
+    Hãy luôn tập trung trả lời dựa trên nội dung tài liệu này. Thân thiện, dễ hiểu, súc tích và sử dụng Tiếng Việt."""
+    
+    model = genai.GenerativeModel(model_name=FLYINGCLASS_AI_MODEL, system_instruction=system_instruction)
+    
+    local_file = None
+    if doc.link_url:
+        if doc.link_url.startswith("/files/") or doc.link_url.startswith("/private/files/"):
+            local_file = get_local_filepath(doc.link_url)
+            
+    uploaded_gemini_file = None
+    web_content = ""
+    
+    if local_file and os.path.exists(local_file):
+        try:
+            uploaded_gemini_file = genai.upload_file(local_file)
+        except Exception as e:
+            web_content = f"\n[Lỗi tải file: {str(e)}]"
+    elif doc.link_url and doc.link_url.startswith("http"):
+        web_content = fetch_webpage_content(doc.link_url)
+        if web_content:
+            web_content = f"\n\nNội dung được trích xuất từ tài liệu:\n{web_content}"
+        else:
+            web_content = f"\n\nTài liệu liên kết đến trang: {doc.link_url}"
+            
+    user_prompt = f"Câu hỏi về tài liệu '{doc.document_name}': {question}"
+    if web_content:
+        user_prompt += web_content
+        
+    chat_session = model.start_chat()
+    for msg in history_list:
+        chat_session.history.append(
+            genai.types.Content(
+                role="user" if msg["role"] == "user" else "model",
+                parts=[genai.types.Part.from_text(text=msg["text"])]
+            )
+        )
+        
+    if uploaded_gemini_file:
+        response = chat_session.send_message([uploaded_gemini_file, user_prompt])
+    else:
+        response = chat_session.send_message(user_prompt)
+        
+    _consume_ai_trial_message(user)
+    
+    try:
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            usage = response.usage_metadata
+            frappe.get_doc({
+                "doctype": "FC AI Token Usage",
+                "model": FLYINGCLASS_AI_MODEL,
+                "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+                "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+                "action": "Doc Chat",
+                "user": user
+            }).insert(ignore_permissions=True)
+            frappe.db.commit()
+    except Exception as e:
+        frappe.log_error("AI Token Logging Error", str(e))
+        
+    return {
+        "success": True,
+        "reply": response.text
+    }
+
+@frappe.whitelist()
+def ask_flyingclass_ai(question, chat_history=None):
+    user = frappe.session.user
+    if user == 'Guest':
+        return {"success": False, "message": "Vui lòng đăng nhập."}
+        
+    if not question:
+        return {"success": False, "message": "Vui lòng nhập câu hỏi."}
+        
+    limit_check = _check_token_limit(user)
+    if not limit_check["success"]:
+        return limit_check
+    
+    # Calculate current token usage for response info
+    used_tokens_res = frappe.db.sql("""
+        SELECT SUM(input_tokens + output_tokens)
+        FROM `tabFC AI Token Usage`
+        WHERE `user` = %s
+    """, (user,))
+    used_tokens = int(used_tokens_res[0][0] or 0) if used_tokens_res and used_tokens_res[0] else 0
+        
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return {
+            "success": False,
+            "message": "Hệ thống chưa cấu hình Gemini API Key trong FC AI Settings. Vui lòng liên hệ Admin."
+        }
+        
+    system_instruction = """Bạn là FlyingClass AI, trợ lý học tập trực tuyến thông minh độc quyền của hệ thống FlyingClass.
+    Hãy luôn thân thiện, nhiệt tình, giải đáp các câu hỏi học tập ngắn gọn, dễ hiểu bằng Tiếng Việt.
+    TUYỆT ĐỐI KHÔNG TIẾT LỘ bạn được phát triển bởi Google hay bất kỳ tổ chức nào ngoài FlyingClass."""
+    
+    # Parse chat history if any
+    history = []
+    if chat_history:
+        try:
+            import json
+            history = json.loads(chat_history)
+        except Exception:
+            pass
+            
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name=FLYINGCLASS_AI_MODEL,
+            system_instruction=system_instruction
+        )
+        
+        # Convert history format for Gemini chat
+        gemini_history = []
+        for msg in history:
+            role = "model" if msg.get("role") == "assistant" else msg.get("role", "user")
+            text = msg.get("text", "")
+            if text and role in ("user", "model"):
+                gemini_history.append({"role": role, "parts": [text]})
+        
+        chat = model.start_chat(history=gemini_history)
+        gemini_response = chat.send_message(question)
+        reply = gemini_response.text
+        
+        # Log tokens used
+        input_tokens = 0
+        output_tokens = 0
+        try:
+            usage = getattr(gemini_response, "usage_metadata", None)
+            if usage:
+                input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+                output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+            
+            frappe.get_doc({
+                "doctype": "FC AI Token Usage",
+                "model": FLYINGCLASS_AI_MODEL,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "action": "Box Chat QA",
+                "user": user
+            }).insert(ignore_permissions=True)
+            frappe.db.commit()
+        except Exception:
+            pass
+            
+        return {
+            "success": True,
+            "reply": reply,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens_used": used_tokens + input_tokens + output_tokens
+        }
+    except Exception as e:
+        err_str = str(e)
+        if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
+            _consume_ai_trial_message(user)
+            return {
+                "success": True,
+                "reply": "⚠️ **[MOCK DATA]** API Key Gemini của hệ thống đã vượt giới hạn quota từ Google (lỗi 429). Đây là câu trả lời giả lập từ hệ thống để bạn có thể tiếp tục xem và test giao diện bình thường nhé!",
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "total_tokens_used": 30
+            }
+        if "401" in err_str or "403" in err_str or "INVALID_ARGUMENT" in err_str or "API_KEY_INVALID" in err_str:
+            return {
+                "success": False,
+                "code": "AI_INVALID_KEY",
+                "message": "⚠️ API Key Gemini không hợp lệ hoặc đã hết hạn. Vui lòng liên hệ Admin để cập nhật."
+            }
+        return {
+            "success": False,
+            "message": f"Có lỗi xảy ra khi gọi FlyingClass AI: {err_str}"
+        }
+
+
+@frappe.whitelist()
+def get_course_outline(class_id):
+    """
+    Trả về danh sách các chương và bài học, cùng với trạng thái khóa/mở của học sinh.
+    """
+    user = frappe.session.user
+    class_doc = frappe.get_doc("FC Class", class_id)
+    roles = frappe.get_roles(user)
+    is_teacher = class_doc.teacher == user
+    is_student = any((m.student or "").lower() == (user or "").lower() for m in class_doc.students)
+    is_admin = "FC Admin" in roles
+
+    if not (is_admin or is_teacher or is_student):
+        frappe.throw(_("Bạn không có quyền xem lớp học này!"))
+
+    # Fetch chapters
+    chapters = frappe.get_all("FC Chapter", filters={"class_ref": class_id}, fields=["name", "chapter_name", "order_idx", "description"], order_by="order_idx asc")
+    
+    # Fetch lessons
+    lessons = frappe.get_all("FC Lesson", filters={"class_ref": class_id}, fields=["name", "title", "video_url", "document_url", "chapter_ref", "order_idx"], order_by="order_idx asc")
+    
+    # Fetch documents for lessons
+    documents = frappe.get_all("FC Document", filters={"class_ref": class_id}, fields=["name", "document_name", "doc_type", "parent_folder", "link_url", "lesson_ref"], order_by="creation asc")
+    
+    # Fetch chapter tests
+    chapter_tests = frappe.get_all("FC Chapter Test", fields=["name", "title", "chapter_ref", "pass_score", "status"])
+    test_dict = {t.chapter_ref: t for t in chapter_tests}
+    
+    # Fetch progress for student
+    progress_dict = {}
+    if is_student and not is_teacher and not is_admin:
+        progress_records = frappe.get_all("FC Chapter Progress", filters={"student": user, "class_ref": class_id}, fields=["chapter_ref", "is_passed", "test_score"])
+        for p in progress_records:
+            progress_dict[p.chapter_ref] = p
+
+    # Fetch questions for tests so frontend can render them
+    for t_ref, t_doc in test_dict.items():
+        doc = frappe.get_doc("FC Chapter Test", t_doc.name)
+        t_doc["questions"] = []
+        for q in doc.questions:
+            q_dict = {
+                "name": q.name,
+                "question_text": q.question_text,
+                "option_a": q.option_a,
+                "option_b": q.option_b,
+                "option_c": q.option_c,
+                "option_d": q.option_d
+            }
+            if is_teacher or is_admin:
+                q_dict["correct_option"] = q.correct_option
+            t_doc["questions"].append(q_dict)
+
+    outline = []
+    is_locked = False
+
+    for i, chap in enumerate(chapters):
+        chap_lessons = []
+        for l in lessons:
+            if l.chapter_ref == chap.name:
+                # Attach documents to this lesson
+                l_docs = [d for d in documents if d.lesson_ref == l.name]
+                l.documents = l_docs
+                chap_lessons.append(l)
+        chap_test = test_dict.get(chap.name)
+        chap_progress = progress_dict.get(chap.name)
+        
+        passed = chap_progress.is_passed if chap_progress else 0
+        score = chap_progress.test_score if chap_progress else None
+
+        # Logic mở khóa: 
+        # Chương đầu tiên luôn mở (nếu chưa bị khóa từ chương trước).
+        # Nếu chương N có bài test mà học sinh chưa pass, thì chương N+1 sẽ bị khóa.
+        current_locked = is_locked
+        if is_teacher or is_admin:
+            current_locked = False
+            
+        chap_info = {
+            "id": chap.name,
+            "chapter_name": chap.chapter_name,
+            "order_idx": chap.order_idx,
+            "description": chap.description,
+            "lessons": chap_lessons,
+            "test": chap_test,
+            "is_locked": current_locked,
+            "passed": passed,
+            "score": score
+        }
+        outline.append(chap_info)
+
+        # Cập nhật trạng thái khóa cho chương tiếp theo
+        if chap_test and not passed:
+            is_locked = True
+            
+    return {"chapters": outline}
+
+@frappe.whitelist()
+def submit_chapter_test(test_id, answers):
+    user = frappe.session.user
+    answers_dict = json.loads(answers) if isinstance(answers, str) else answers
+    
+    test_doc = frappe.get_doc("FC Chapter Test", test_id)
+    class_id = frappe.db.get_value("FC Chapter", test_doc.chapter_ref, "class_ref")
+    
+    total_questions = len(test_doc.questions)
+    correct_count = 0
+    
+    for q in test_doc.questions:
+        student_answer = answers_dict.get(q.name)
+        if student_answer and q.correct_option and student_answer.lower() == q.correct_option.lower():
+            correct_count += 1
+            
+    is_passed = 1 if correct_count >= test_doc.pass_score else 0
+    score = (correct_count / total_questions) * 10 if total_questions > 0 else 0
+    
+    # Check if progress exists
+    existing = frappe.get_all("FC Chapter Progress", filters={"student": user, "chapter_ref": test_doc.chapter_ref}, limit=1)
+    
+    if existing:
+        prog_doc = frappe.get_doc("FC Chapter Progress", existing[0].name)
+        # Chỉ cập nhật nếu điểm mới cao hơn, hoặc nếu học sinh chuyển từ fail sang pass
+        if is_passed or score > prog_doc.test_score:
+            prog_doc.test_score = score
+            prog_doc.is_passed = 1 if (prog_doc.is_passed or is_passed) else 0
+            prog_doc.save(ignore_permissions=True)
+    else:
+        prog_doc = frappe.get_doc({
+            "doctype": "FC Chapter Progress",
+            "student": user,
+            "class_ref": class_id,
+            "chapter_ref": test_doc.chapter_ref,
+            "test_score": score,
+            "is_passed": is_passed
+        })
+        prog_doc.insert(ignore_permissions=True)
+        
+    return {
+        "success": True,
+        "score": score,
+        "correct_count": correct_count,
+        "total_questions": total_questions,
+        "is_passed": is_passed,
+        "message": "Chúc mừng! Bạn đã qua bài kiểm tra." if is_passed else "Rất tiếc, bạn chưa đạt đủ điểm để qua chương."
+    }
+
+@frappe.whitelist()
+def get_student_learning_progress(class_id):
+    user = frappe.session.user
+    
+    # Check if student is in class
+    class_doc = frappe.get_doc("FC Class", class_id)
+    is_student = any((m.student or "").lower() == (user or "").lower() for m in class_doc.students)
+    if not is_student and "FC Admin" not in frappe.get_roles(user) and class_doc.teacher != user:
+        frappe.throw("Bạn không có quyền xem tiến độ của lớp này")
+        
+    chapters = frappe.get_all("FC Chapter", filters={"class_ref": class_id}, fields=["name"])
+    total_chapters = len(chapters)
+    
+    if total_chapters == 0:
+        return {"success": True, "progress_percent": 0, "passed_chapters": 0, "total_chapters": 0}
+        
+    chapter_names = [c.name for c in chapters]
+    passed_progress = frappe.get_all(
+        "FC Chapter Progress", 
+        filters={"student": user, "class_ref": class_id, "chapter_ref": ["in", chapter_names], "is_passed": 1},
+        fields=["name"]
+    )
+    
+    passed_count = len(passed_progress)
+    progress_percent = int((passed_count / total_chapters) * 100)
     
     return {
         "success": True,
-        "order_code": order.name,
-        "amount": amount
+        "progress_percent": progress_percent,
+        "passed_chapters": passed_count,
+        "total_chapters": total_chapters
+    }
+
+@frappe.whitelist()
+def create_lesson_api(title, class_ref, chapter_ref, video_url="", document_url="", order_idx=1):
+    """Create a lesson - whitelisted method to bypass Frappe REST permission issues"""
+    user = frappe.session.user
+    
+    # Verify the teacher owns this class
+    class_doc = frappe.get_doc("FC Class", class_ref)
+    if class_doc.teacher != user and "FC Admin" not in frappe.get_roles(user):
+        frappe.throw("Bạn không có quyền tạo bài học cho lớp này", frappe.PermissionError)
+    
+    doc = frappe.get_doc({
+        "doctype": "FC Lesson",
+        "title": title,
+        "class_ref": class_ref,
+        "chapter_ref": chapter_ref,
+        "video_url": video_url or "",
+        "document_url": document_url or "",
+        "order_idx": int(order_idx)
+    })
+    doc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return doc.as_dict()
+
+
+@frappe.whitelist()
+def delete_lesson_api(lesson_name):
+    """Delete a lesson - whitelisted method to bypass Frappe REST permission issues"""
+    user = frappe.session.user
+    
+    lesson_doc = frappe.get_doc("FC Lesson", lesson_name)
+    class_doc = frappe.get_doc("FC Class", lesson_doc.class_ref)
+    if class_doc.teacher != user and "FC Admin" not in frappe.get_roles(user):
+        frappe.throw("Bạn không có quyền xóa bài học này", frappe.PermissionError)
+    
+    frappe.delete_doc("FC Lesson", lesson_name, ignore_permissions=True)
+    frappe.db.commit()
+    return {"success": True}
+
+@frappe.whitelist()
+def get_token_usage_history(days=7):
+    user = frappe.session.user
+    
+    # Query to group token usage by date
+    history_raw = frappe.db.sql("""
+        SELECT DATE(creation) as date, SUM(input_tokens + output_tokens) as total
+        FROM `tabFC AI Token Usage`
+        WHERE user = %s AND creation >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
+        GROUP BY DATE(creation)
+        ORDER BY DATE(creation) ASC
+    """, (user, int(days)), as_dict=True)
+    
+    import datetime
+    today = datetime.date.today()
+    
+    data_dict = {str(item.date): int(item.total or 0) for item in history_raw}
+    
+    result = []
+    for i in range(int(days)-1, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        d_str = str(d)
+        result.append({
+            "date": d.strftime("%d/%m"),
+            "tokens": data_dict.get(d_str, 0)
+        })
+        
+    return {
+        "success": True,
+        "data": result
     }

@@ -1,8 +1,8 @@
 import frappe
-
-def execute():
-    logs = frappe.db.get_list("Error Log", fields=["method", "error"], limit=1, order_by="creation desc")
-    if logs:
-        print(logs[0].error)
-    else:
-        print("No logs")
+frappe.init(site="flyingclass.localhost", sites_path="sites")
+frappe.connect()
+for x in frappe.get_all("Error Log", fields=["method", "traceback", "creation"], order_by="creation desc", limit=3):
+    print("METHOD:", x.get("method"))
+    print("CREATION:", x.get("creation"))
+    print("TRACEBACK:", x.get("traceback"))
+    print("="*80)

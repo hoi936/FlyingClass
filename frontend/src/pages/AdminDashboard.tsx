@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { 
   Users, ShieldCheck, Settings, AlertTriangle, CheckCircle, XCircle, Eye, EyeOff,
-  BookOpen, DollarSign, Activity, Search, Trash2, ShieldAlert, Cpu, Power, Sun, Moon, ShieldBan, Lock
+  BookOpen, DollarSign, Activity, Search, Trash2, ShieldAlert, Cpu, Power, Sun, Moon, ShieldBan, Lock, Star
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -16,6 +16,9 @@ const AdminDashboard = () => {
   const { theme, toggleTheme } = useThemeStore();
   const [activeTab, setActiveTab] = useSessionState('adminActiveTab', 'dashboard');
   const [stats, setStats] = useState<any>(null);
+  const [financeStats, setFinanceStats] = useState<any>(null);
+  const [financeFilter, setFinanceFilter] = useState('month');
+  const [aiSubFilter, setAiSubFilter] = useState('Tất cả trạng thái');
   const [kycProfiles, setKycProfiles] = useState<any[]>([]);
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [adminClasses, setAdminClasses] = useState<any[]>([]);
@@ -23,6 +26,7 @@ const AdminDashboard = () => {
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
   const [chartFilter, setChartFilter] = useState('week');
   const [roleFilter, setRoleFilter] = useState('Tất cả vai trò');
@@ -34,11 +38,7 @@ const AdminDashboard = () => {
 
 
 
-  const mockTransactions = [
-    { id: 'MOMO123456', user: 'Nguyễn Văn A', class: 'Toán 12 Nâng Cao', amount: 500000, method: 'MoMo', status: 'Success', date: '2024-05-26' },
-    { id: 'MOMO123457', user: 'Lê Hoàng C', class: 'Lý 11 Cơ Bản', amount: 300000, method: 'MoMo', status: 'Pending', date: '2024-05-26' },
-    { id: 'MOMO123458', user: 'Trần Văn F', class: 'Hóa 10 Chuyên', amount: 400000, method: 'MoMo', status: 'Failed', date: '2024-05-25' },
-  ];
+  // No mockTransactions anymore
 
 
 
@@ -65,11 +65,11 @@ const AdminDashboard = () => {
       const st = await classService.getAdminStats(chartFilter);
       setStats(st);
       const kyc = await classService.getKYCProfiles();
-      setKycProfiles(kyc);
+      setKycProfiles(kyc || []);
       const users = await classService.getAdminUsers();
-      setAdminUsers(users);
+      setAdminUsers(users || []);
       const classes = await classService.getAdminClasses();
-      setAdminClasses(classes);
+      setAdminClasses(classes || []);
       
       const aiData = await classService.getAIConfig();
       if (aiData.success) {
@@ -84,15 +84,28 @@ const AdminDashboard = () => {
         setMaintenanceMode(sysSettings.data.maintenance_mode === 1);
       }
       
-      const subs = await classService.getPendingSubscriptions();
+      const subs = await classService.getAISubscriptions('All');
       if (subs.success) {
         setAiSubscriptions(subs.data || []);
+      }
+      
+      const fStats = await classService.getSubscriptionStats(financeFilter);
+      if (fStats.success) {
+        setFinanceStats(fStats.data);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFinanceFilterChange = async (val: string) => {
+    setFinanceFilter(val);
+    try {
+      const fStats = await classService.getSubscriptionStats(val);
+      if (fStats.success) setFinanceStats(fStats.data);
+    } catch(err) { console.error(err); }
   };
 
   const handleKYCAction = async (profileName: string, action: string) => {
@@ -137,6 +150,37 @@ const AdminDashboard = () => {
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Có lỗi xảy ra khi tạo người dùng.');
+    }
+  };
+
+  const handleRunAIScan = async (profileName: string) => {
+    try {
+      setIsScanning(true);
+      const res = await classService.runKYCAIScan(profileName);
+      if (res.success) {
+        // Update selectedProfile and the item in kycProfiles
+        const updatedProfile = {
+          ...selectedProfile,
+          cert_ai_checked: 1,
+          cert_ai_status: res.cert_ai_status,
+          cert_ai_confidence: res.cert_ai_confidence
+        };
+        setSelectedProfile(updatedProfile);
+        
+        // Update the main list
+        setKycProfiles(prev => prev.map(p => (p && p.name === profileName) ? {
+          ...p,
+          cert_ai_checked: 1,
+          cert_ai_status: res.cert_ai_status,
+          cert_ai_confidence: res.cert_ai_confidence
+        } : p));
+      } else {
+        alert(res.message || 'Lỗi quét AI');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.response?.data || 'Có lỗi khi quét AI.');
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -284,8 +328,8 @@ const AdminDashboard = () => {
     const pendingProfiles = kycProfiles.filter(p => p.status === 'Pending');
     const processedProfiles = kycProfiles.filter(p => p.status === 'Approved' || p.status === 'Rejected');
     const filteredProcessed = processedProfiles.filter(p => 
-      p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (p.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -302,13 +346,14 @@ const AdminDashboard = () => {
               <p>Không có hồ sơ nào cần duyệt.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-700/50">
-              {pendingProfiles.map(p => (
-                <div key={p.name} className="p-6 flex items-center justify-between hover:bg-slate-100/30 dark:bg-slate-700/30 transition-colors">
-                  <div>
-                    <h4 className="text-lg font-bold text-slate-900 dark:text-white">{p.full_name}</h4>
-                    <p className="text-slate-600 dark:text-slate-400 text-sm">{p.email}</p>
-                    <div className="mt-3 flex gap-4">
+            <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+              <div className="divide-y divide-slate-700/50">
+                {pendingProfiles.map(p => (
+                  <div key={p.name} className="p-6 flex items-center justify-between hover:bg-slate-100/30 dark:bg-slate-700/30 transition-colors">
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">{p.full_name}</h4>
+                      <p className="text-slate-600 dark:text-slate-400 text-sm">{p.email}</p>
+                      <div className="mt-3 flex gap-4">
                       {p.id_card_image ? (
                         <span className="flex items-center text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20">
                           <CheckCircle size={14} className="mr-1" /> Có CCCD
@@ -328,6 +373,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
         </div>
@@ -346,15 +392,16 @@ const AdminDashboard = () => {
               <Search size={16} className="absolute left-3 top-2 text-slate-500" />
             </div>
           </div>
-          <div className="divide-y divide-slate-700/50">
-            {filteredProcessed.length === 0 ? (
-               <div className="p-8 text-center text-slate-500">Không tìm thấy lịch sử phù hợp.</div>
-            ) : filteredProcessed.map(p => (
-              <div key={p.name} className="p-5 flex items-center justify-between hover:bg-slate-100/20 dark:bg-slate-700/20">
-                <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white">{p.full_name}</h4>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">{p.email}</p>
-                  {p.status === 'Rejected' && <p className="text-red-400 text-xs mt-2 bg-red-400/10 inline-block px-2 py-1 rounded border border-red-400/20">Lý do: {p.rejection_reason}</p>}
+          <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+            <div className="divide-y divide-slate-700/50">
+              {filteredProcessed.length === 0 ? (
+                 <div className="p-8 text-center text-slate-500">Không tìm thấy lịch sử phù hợp.</div>
+              ) : filteredProcessed.map(p => (
+                <div key={p.name} className="p-5 flex items-center justify-between hover:bg-slate-100/20 dark:bg-slate-700/20">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white">{p.full_name}</h4>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm">{p.email}</p>
+                    {p.status === 'Rejected' && <p className="text-red-400 text-xs mt-2 bg-red-400/10 inline-block px-2 py-1 rounded border border-red-400/20">Lý do: {p.rejection_reason}</p>}
                 </div>
                 <div>
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${p.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
@@ -363,6 +410,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>
@@ -399,11 +447,13 @@ const AdminDashboard = () => {
             <option value="FC Teacher">FC Teacher</option>
           </select>
         </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
+        <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead className="sticky top-0 z-10 shadow-sm">
             <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200/50 dark:border-slate-700/50">
               <th className="p-4 font-medium">Người dùng</th>
               <th className="p-4 font-medium">Vai trò</th>
+              <th className="p-4 font-medium">Gói AI</th>
               <th className="p-4 font-medium">Ngày tham gia</th>
               <th className="p-4 font-medium">Trạng thái</th>
               <th className="p-4 font-medium text-right">Thao tác</th>
@@ -411,22 +461,58 @@ const AdminDashboard = () => {
           </thead>
           <tbody className="divide-y divide-slate-700/50">
             {adminUsers.filter(u => 
+              u &&
               (roleFilter === 'Tất cả vai trò' || u.role === roleFilter) && 
-              (u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+              ((u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()))
             ).map(u => (
               <tr key={u.id} className="hover:bg-slate-100/20 dark:bg-slate-700/20 transition-colors">
                 <td className="p-4">
-                  <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                  <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    {u.name}
+                    {u.role === 'FC Teacher' && (
+                      <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full flex items-center shadow-sm">
+                        <Star size={8} className="mr-0.5" fill="currentColor" /> {(() => {
+                          const ratings = JSON.parse(localStorage.getItem('fc_teacher_ratings') || '{}');
+                          const tRating = ratings[u.name];
+                          if (tRating && tRating.count > 0) return Number((tRating.totalStars / tRating.count).toFixed(1));
+                          return '0.0';
+                        })()}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400">{u.email}</div>
                 </td>
                 <td className="p-4">
-                  <span className={`text-xs px-2 py-1 rounded-full border ${u.role === 'FC Teacher' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                  <span className={`text-xs px-2 py-1 rounded border ${u.role === 'FC Teacher' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : u.role === 'FC Admin' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
                     {u.role}
                   </span>
                 </td>
-                <td className="p-4 text-slate-700 dark:text-slate-300 text-sm">{u.joinDate}</td>
                 <td className="p-4">
-                  <span className={`text-xs px-2 py-1 rounded-full ${u.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}`}>
+                  {u.role === 'FC Student' || u.role === 'FC Admin' ? (
+                    <span className="text-slate-500">-</span>
+                  ) : u.ai_subscription_active ? (
+                    <div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                        ✓ Active - Gói {u.ai_package_type === 'Pro' || u.ai_package_type === 'Pro_Monthly' ? 'Pro' : 'Thường'}
+                      </span>
+                      {u.ai_expiration_date && (
+                        <div className="text-[11px] text-slate-500 mt-1 ml-1">Hết hạn: {new Date(u.ai_expiration_date).toLocaleDateString('vi-VN')}</div>
+                      )}
+                    </div>
+                  ) : u.ai_expiration_date ? (
+                    <div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 font-medium flex items-center inline-flex">
+                        ⚠ Hết hạn
+                      </span>
+                      <div className="text-[11px] text-slate-500 mt-1 ml-1">{new Date(u.ai_expiration_date).toLocaleDateString('vi-VN')}</div>
+                    </div>
+                  ) : (
+                    <span className="text-xs px-2 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20">Chưa đăng ký</span>
+                  )}
+                </td>
+                <td className="p-4 text-slate-700 dark:text-slate-300 text-sm">{u.joinDate}</td>
+                <td className="p-4 font-medium text-sm">
+                  <span className={u.status === 'Active' ? 'text-emerald-400' : 'text-slate-400'}>
                     {u.status}
                   </span>
                 </td>
@@ -441,6 +527,7 @@ const AdminDashboard = () => {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="p-4 border-t border-slate-200/50 dark:border-slate-700/50 text-center text-xs text-slate-500">
           (Dữ liệu mẫu - Cần tích hợp API)
         </div>
@@ -453,8 +540,9 @@ const AdminDashboard = () => {
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Quản Lý Lớp Học & Nội Dung</h2>
       
       <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
+        <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead className="sticky top-0 z-10 shadow-sm">
             <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200/50 dark:border-slate-700/50">
               <th className="p-4 font-medium">Mã Lớp</th>
               <th className="p-4 font-medium">Tên Lớp</th>
@@ -485,6 +573,7 @@ const AdminDashboard = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
@@ -493,60 +582,117 @@ const AdminDashboard = () => {
 
   const renderFinance = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Quản Lý Tài Chính & Đối Soát</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Quản Lý Tài Chính & Đối Soát</h2>
+        <select 
+          value={financeFilter}
+          onChange={(e) => handleFinanceFilterChange(e.target.value)}
+          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 px-4 py-2 rounded-lg focus:outline-none"
+        >
+          <option value="week">7 Ngày qua</option>
+          <option value="month">Tháng này</option>
+          <option value="year">Năm nay</option>
+        </select>
+      </div>
       
+      <div className="bg-emerald-500/20 p-6 rounded-xl border border-emerald-500/30 shadow-lg relative overflow-hidden w-full max-w-md">
+        <DollarSign size={100} className="absolute -right-4 -bottom-4 text-emerald-500/10" />
+        <p className="text-emerald-500 dark:text-emerald-400 font-medium mb-1 relative z-10">Doanh Thu Tháng Này</p>
+        <h3 className="text-4xl font-bold text-slate-900 dark:text-white relative z-10">{financeStats?.total_revenue?.toLocaleString() || 0} <span className="text-lg text-emerald-500 dark:text-emerald-400">VND</span></h3>
+        <p className="text-sm text-emerald-600 dark:text-emerald-500 mt-2 relative z-10">Tổng đơn hàng Paid/Approved: {financeStats?.teacher_count || 0} giáo viên</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-6">
-        <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-6 rounded-xl border border-emerald-500/30 shadow-lg relative overflow-hidden">
-          <DollarSign size={100} className="absolute -right-4 -bottom-4 text-emerald-500/10" />
-          <p className="text-emerald-400 font-medium mb-1 relative z-10">Tổng Doanh Thu (GMV)</p>
-          <h3 className="text-4xl font-bold text-slate-900 dark:text-white relative z-10">12,500,000 <span className="text-lg text-emerald-400">VND</span></h3>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg p-5">
+          <h3 className="font-bold text-slate-900 dark:text-white mb-4">Xu Hướng Doanh Thu</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={financeStats?.daily_revenue || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }} />
+                <Line type="monotone" dataKey="revenue" name="Doanh thu" stroke="#10b981" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-orange-500/20 to-rose-500/20 p-6 rounded-xl border border-orange-500/30 shadow-lg relative overflow-hidden">
-          <Activity size={100} className="absolute -right-4 -bottom-4 text-orange-500/10" />
-          <p className="text-orange-400 font-medium mb-1 relative z-10">Doanh thu chờ đối soát</p>
-          <h3 className="text-4xl font-bold text-slate-900 dark:text-white relative z-10">3,400,000 <span className="text-lg text-orange-400">VND</span></h3>
+        
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg p-5">
+          <h3 className="font-bold text-slate-900 dark:text-white mb-4">Doanh Thu Theo Loại Gói AI</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={financeStats?.revenue_by_package || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="packageId" stroke="#94a3b8" tickFormatter={(v) => v === 'Normal' || v === 'Monthly' ? 'Thường' : v === 'Pro_Monthly' ? 'Pro' : v} />
+                <YAxis stroke="#94a3b8" />
+                <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }} />
+                <Bar dataKey="revenue" name="Doanh thu" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={80} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-6 max-w-2xl">
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Gói: 1 Tháng</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">199.000 đ</h3>
+          <p className="text-slate-500 text-xs mt-1">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Monthly')?.orders || 0} đơn hàng</p>
+        </div>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Gói: Pro_Monthly</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">298.500 đ</h3>
+          <p className="text-slate-500 text-xs mt-1">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Pro_Monthly')?.orders || 0} đơn hàng</p>
         </div>
       </div>
 
-      <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg overflow-hidden">
+      <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden shadow-lg mt-6">
         <div className="p-5 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/80 dark:bg-slate-800/80">
-          <h3 className="font-bold text-slate-900 dark:text-white">Lịch Sử Giao Dịch</h3>
+          <h3 className="font-bold text-slate-900 dark:text-white">Lịch Sử Giao Dịch Gói AI</h3>
         </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200/50 dark:border-slate-700/50">
-              <th className="p-4 font-medium">Mã GD</th>
-              <th className="p-4 font-medium">Người Mua</th>
-              <th className="p-4 font-medium">Lớp Học</th>
-              <th className="p-4 font-medium text-right">Số Tiền (VND)</th>
-              <th className="p-4 font-medium text-center">Phương Thức</th>
-              <th className="p-4 font-medium text-right">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700/50">
-            {mockTransactions.map(t => (
-              <tr key={t.id} className="hover:bg-slate-100/20 dark:bg-slate-700/20 transition-colors">
-                <td className="p-4 font-mono text-sm text-slate-700 dark:text-slate-300">{t.id}</td>
-                <td className="p-4 font-bold text-slate-900 dark:text-white">{t.user}</td>
-                <td className="p-4 text-slate-700 dark:text-slate-300">{t.class}</td>
-                <td className="p-4 text-right font-bold text-emerald-400">{t.amount.toLocaleString()}</td>
-                <td className="p-4 text-center">
-                  <span className="bg-pink-500/20 text-pink-400 border border-pink-500/30 px-2 py-1 rounded text-xs font-bold">{t.method}</span>
-                </td>
-                <td className="p-4 text-right">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    t.status === 'Success' ? 'bg-emerald-500/10 text-emerald-400' : 
-                    t.status === 'Pending' ? 'bg-orange-500/10 text-orange-400' : 'bg-red-500/10 text-red-400'
-                  }`}>
-                    {t.status}
-                  </span>
-                </td>
+        <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+        <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200/50 dark:border-slate-700/50">
+                <th className="p-4 font-medium">Mã VNPAY</th>
+                <th className="p-4 font-medium">Giáo Viên</th>
+                <th className="p-4 font-medium">Gói</th>
+                <th className="p-4 font-medium">Số Tiền (VND)</th>
+                <th className="p-4 font-medium">Cổng TT</th>
+                <th className="p-4 font-medium text-right">Trạng thái</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="p-4 border-t border-slate-200/50 dark:border-slate-700/50 text-center text-xs text-slate-500">
-          (Yêu cầu tích hợp cổng thanh toán MoMo API)
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {financeStats?.latest_transactions?.map((t: any) => (
+                <tr key={t.name} className="hover:bg-slate-100/20 dark:hover:bg-slate-700/20 transition-colors">
+                  <td className="p-4 font-mono text-sm text-slate-700 dark:text-slate-300">{t.vnp_transaction_no || t.name}</td>
+                  <td className="p-4 text-slate-900 dark:text-white">{t.teacher}</td>
+                  <td className="p-4 text-slate-700 dark:text-slate-300">
+                    <span className="bg-blue-500/10 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 px-2 py-1 rounded text-xs">
+                      {t.package_type === 'Monthly' ? 'Thường' : t.package_type === 'Pro_Monthly' ? 'Pro' : t.package_type}
+                    </span>
+                  </td>
+                  <td className="p-4 font-bold text-slate-900 dark:text-white">{(t.amount || 0).toLocaleString()}</td>
+                  <td className="p-4 text-slate-500 dark:text-slate-400 text-sm">VNPAY - {t.vnp_response_code || '00'}</td>
+                  <td className="p-4 text-right">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      t.status === 'Approved' || t.status === 'Paid' ? 'text-emerald-500 dark:text-emerald-400' : 'text-orange-500 dark:text-orange-400'
+                    }`}>
+                      {t.status === 'Approved' || t.status === 'Paid' ? 'Paid' : t.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {(!financeStats?.latest_transactions || financeStats.latest_transactions.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-slate-500">Không có giao dịch nào</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          </div>
         </div>
       </div>
     </div>
@@ -722,7 +868,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans flex flex-col">
       <nav className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-700/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center font-bold text-slate-900 dark:text-white shadow-lg shadow-rose-500/20">FC</div>
@@ -744,7 +890,7 @@ const AdminDashboard = () => {
         </div>
       </nav>
 
-      <div className="flex flex-1 max-w-7xl w-full mx-auto overflow-hidden">
+      <div className="flex flex-1 w-full overflow-hidden">
         {/* Sidebar */}
         <aside className="w-72 border-r border-slate-200/50 dark:border-slate-700/50 p-6 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-900/50 overflow-y-auto">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-2">Tổng Quan</p>
@@ -805,6 +951,142 @@ const AdminDashboard = () => {
               {activeTab === 'finance' && renderFinance()}
               {activeTab === 'ai_cost' && renderAICost()}
               {activeTab === 'settings' && renderSettings()}
+              {/* AI Subscriptions View */}
+      {activeTab === 'ai_subscriptions' && (
+        <div className="flex-1 p-8 overflow-y-auto animate-fade-in">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Quản Lý Đăng Ký AI</h2>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">Theo dõi đơn VNPAY, giáo viên đã mua gói và doanh thu gói AI.</p>
+            </div>
+            <select 
+              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 px-4 py-2 rounded-lg focus:outline-none shadow-sm"
+              value={aiSubFilter}
+              onChange={(e) => setAiSubFilter(e.target.value)}
+            >
+              <option value="Tất cả trạng thái">Tất cả trạng thái</option>
+              <option value="Approved">Đã thanh toán (Paid/Approved)</option>
+              <option value="Pending">Chờ thanh toán (Pending)</option>
+            </select>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="bg-white/60 dark:bg-slate-800/60 p-6 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Tổng doanh thu VNPAY</p>
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+                {financeStats?.total_revenue?.toLocaleString() || 0} đ
+              </h3>
+            </div>
+            <div className="bg-white/60 dark:bg-slate-800/60 p-6 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Giáo viên đã mua gói</p>
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+                {financeStats?.teacher_count || 0}
+              </h3>
+            </div>
+            <div className="bg-white/60 dark:bg-slate-800/60 p-6 rounded-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg flex flex-col justify-center">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-3">Doanh thu theo gói</p>
+              <div className="flex justify-between text-slate-900 dark:text-white text-sm mb-2">
+                <span>1 Tháng</span>
+                <span className="font-bold">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Monthly')?.revenue?.toLocaleString() || 0} đ</span>
+              </div>
+              <div className="flex justify-between text-slate-900 dark:text-white text-sm">
+                <span>Pro_Monthly</span>
+                <span className="font-bold">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Pro_Monthly')?.revenue?.toLocaleString() || 0} đ</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden shadow-lg">
+            <div className="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+              <h3 className="font-bold text-slate-800 dark:text-white">Danh sách đơn đăng ký AI</h3>
+            </div>
+            <div className="overflow-auto max-h-[70vh] custom-scrollbar relative border-t border-slate-200/50 dark:border-slate-700/50">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="sticky top-0 z-10 shadow-sm backdrop-blur-md bg-slate-100/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm">
+                  <tr>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">Giáo viên</th>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">Gói</th>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">Số tiền</th>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">Trạng thái</th>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">VNPAY</th>
+                    <th className="px-6 py-4 font-medium border-b border-slate-200/50 dark:border-slate-700/50">Hạn AI</th>
+                    <th className="px-6 py-4 font-medium text-right border-b border-slate-200/50 dark:border-slate-700/50">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  {aiSubscriptions.filter((s:any) => aiSubFilter === 'Tất cả trạng thái' ? true : (aiSubFilter === 'Approved' ? (s.status === 'Approved' || s.status === 'Paid') : s.status === aiSubFilter)).map((sub: any) => (
+                    <tr key={sub.name} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition">
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-slate-900 dark:text-white">{sub.teacher_name}</p>
+                        <p className="text-sm text-slate-500">{sub.teacher}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${sub.package_type === 'Pro_Monthly' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'}`}>
+                          {sub.package_type === 'Monthly' ? 'Thường - 1 Tháng' : sub.package_type === 'Pro_Monthly' ? 'Pro - 1 Tháng' : sub.package_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {(sub.amount || 0).toLocaleString()} đ
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {sub.status === 'Pending' ? (
+                          <span className="text-orange-500 dark:text-orange-400 font-medium text-sm">Pending</span>
+                        ) : sub.status === 'Approved' || sub.status === 'Paid' ? (
+                          <span className="text-emerald-500 dark:text-emerald-400 font-medium text-sm">Paid</span>
+                        ) : (
+                          <span className="text-red-500 dark:text-red-400 font-medium text-sm">{sub.status}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="font-mono text-sm text-slate-600 dark:text-slate-300">{sub.vnp_transaction_no || sub.name}</p>
+                        <p className="text-xs text-slate-500">VNPAY - {sub.vnp_response_code || '00'}</p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-sm whitespace-nowrap">
+                        {sub.ai_expiration_date ? new Date(sub.ai_expiration_date).toLocaleDateString('vi-VN') : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {sub.status === 'Pending' && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await classService.approveSubscription(sub.name, 'Rejected');
+                                  fetchData();
+                                } catch (e) {}
+                              }}
+                              className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30"
+                              title="Từ chối"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await classService.approveSubscription(sub.name, 'Approved');
+                                  fetchData();
+                                } catch (e) {}
+                              }}
+                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm shadow-emerald-500/20"
+                            >
+                              <CheckCircle size={16} /> Duyệt
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {aiSubscriptions.filter((s:any) => aiSubFilter === 'Tất cả trạng thái' ? true : (aiSubFilter === 'Approved' ? (s.status === 'Approved' || s.status === 'Paid') : s.status === aiSubFilter)).length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center text-slate-500">Không có dữ liệu.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
             </>
           )}
         </main>
@@ -844,17 +1126,63 @@ const AdminDashboard = () => {
                     <h4 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">Tài liệu đính kèm</h4>
                     <div className="space-y-3">
                       {selectedProfile.id_card_image ? (
-                        <a href={`http://127.0.0.1:8001${selectedProfile.id_card_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
+                        <a href={`${import.meta.env.VITE_API_URL || ''}${selectedProfile.id_card_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
                           <Eye size={18} className="mr-2" /> Xem ảnh CCCD/CMND
                         </a>
                       ) : <span className="text-slate-500 block">Chưa cập nhật CCCD</span>}
                       
                       {selectedProfile.certificate_image ? (
-                        <a href={`http://127.0.0.1:8001${selectedProfile.certificate_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
+                        <a href={`${import.meta.env.VITE_API_URL || ''}${selectedProfile.certificate_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
                           <Eye size={18} className="mr-2" /> Xem Bằng cấp/Chứng chỉ
                         </a>
                       ) : <span className="text-slate-500 block">Chưa cập nhật Bằng cấp</span>}
                     </div>
+                  </div>
+
+                  <div className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center">
+                        <span className="mr-2">🤖</span> Trợ lý AI Kiểm định
+                      </h4>
+                      {selectedProfile.certificate_image && (
+                        <button 
+                          onClick={() => handleRunAIScan(selectedProfile.name)}
+                          disabled={isScanning}
+                          className="px-3 py-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded text-xs font-bold transition flex items-center disabled:opacity-50"
+                        >
+                          {isScanning ? (
+                            <><span className="animate-spin mr-1">⌛</span> Đang xử lý...</>
+                          ) : (
+                            <>{selectedProfile.cert_ai_checked ? 'Quét lại (Rescan)' : 'Quét Chứng chỉ'}</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    
+                    {!selectedProfile.cert_ai_checked ? (
+                      <p className="text-sm text-slate-500 italic">Chưa thực hiện đánh giá AI.</p>
+                    ) : (
+                      <div className={`p-3 rounded-md border ${selectedProfile.cert_ai_status === 'Authentic' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' : selectedProfile.cert_ai_status === 'Forged' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'}`}>
+                        <div className="flex items-center mb-1">
+                          {selectedProfile.cert_ai_status === 'Authentic' ? (
+                            <CheckCircle size={16} className="text-emerald-500 mr-2" />
+                          ) : selectedProfile.cert_ai_status === 'Forged' ? (
+                            <AlertTriangle size={16} className="text-red-500 mr-2" />
+                          ) : (
+                            <AlertTriangle size={16} className="text-orange-500 mr-2" />
+                          )}
+                          <span className={`font-bold ${selectedProfile.cert_ai_status === 'Authentic' ? 'text-emerald-700 dark:text-emerald-400' : selectedProfile.cert_ai_status === 'Forged' ? 'text-red-700 dark:text-red-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                            {selectedProfile.cert_ai_status === 'Authentic' ? 'Chứng chỉ hợp lệ' : selectedProfile.cert_ai_status === 'Forged' ? 'Cảnh báo Giả mạo!' : 'Lỗi kiểm định'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                          Độ tin cậy: <span className="font-bold">{selectedProfile.cert_ai_confidence}%</span>
+                        </p>
+                        <p className="text-xs mt-2 text-slate-500 dark:text-slate-400">
+                          {selectedProfile.cert_ai_status === 'Authentic' ? 'Cấu trúc nhiễu bề mặt đồng nhất.' : selectedProfile.cert_ai_status === 'Forged' ? 'Phát hiện bất thường trong phân bố nhiễu tại vùng nội dung. Có dấu hiệu chỉnh sửa.' : 'Không thể phân tích cấu trúc nhiễu.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1024,9 +1352,9 @@ const AdminDashboard = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-lg">
-                  <p className="text-sm text-slate-500 mb-2">CCCD/CMND</p>
+                      <p className="text-sm text-slate-500 mb-2">CCCD/CMND</p>
                       {viewingUser.id_card_image ? (
-                        <a href={`http://127.0.0.1:8001${viewingUser.id_card_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
+                        <a href={`${import.meta.env.VITE_API_URL || ''}${viewingUser.id_card_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
                           <Eye size={18} className="mr-2" /> Xem ảnh CCCD
                         </a>
                       ) : <p className="text-slate-500 text-sm">Chưa có</p>}
@@ -1034,7 +1362,7 @@ const AdminDashboard = () => {
                     <div className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-lg">
                       <p className="text-sm text-slate-500 mb-2">Bằng cấp/Chứng chỉ</p>
                       {viewingUser.certificate_image ? (
-                        <a href={`http://127.0.0.1:8001${viewingUser.certificate_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
+                        <a href={`${import.meta.env.VITE_API_URL || ''}${viewingUser.certificate_image}`} target="_blank" rel="noreferrer" className="flex items-center text-blue-400 hover:underline">
                           <Eye size={18} className="mr-2" /> Xem Bằng cấp
                         </a>
                       ) : <p className="text-slate-500 text-sm">Chưa có</p>}
@@ -1054,88 +1382,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
-      {/* AI Subscriptions View */}
-      {activeTab === 'ai_subscriptions' && (
-        <div className="flex-1 p-8 overflow-y-auto">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Duyệt Đơn Mua Gói AI</h2>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">Quản lý các yêu cầu nâng cấp AI từ Giáo viên</p>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="font-bold text-slate-800 dark:text-white">Danh sách đơn hàng Pending</h3>
-            </div>
-            {aiSubscriptions.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 dark:text-slate-400">
-                <CheckCircle className="w-12 h-12 mx-auto text-emerald-400 mb-4 opacity-50" />
-                <p>Không có yêu cầu duyệt gói AI nào lúc này.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-sm">
-                    <tr>
-                      <th className="px-6 py-4 font-medium">Giáo Viên</th>
-                      <th className="px-6 py-4 font-medium">Gói Cước</th>
-                      <th className="px-6 py-4 font-medium">Số Tiền</th>
-                      <th className="px-6 py-4 font-medium">Mã Đơn Hàng</th>
-                      <th className="px-6 py-4 font-medium">Thời Gian Tạo</th>
-                      <th className="px-6 py-4 font-medium text-right">Hành Động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {aiSubscriptions.map(sub => (
-                      <tr key={sub.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition">
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-slate-900 dark:text-white">{sub.teacher_name}</p>
-                          <p className="text-sm text-slate-500">{sub.teacher}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${sub.package_type === 'Yearly' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                            {sub.package_type === 'Monthly' ? '1 Tháng' : '1 Năm'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">
-                          {sub.amount.toLocaleString()} đ
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-mono bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded text-sm text-slate-600 dark:text-slate-400">{sub.order_code}</span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 text-sm">
-                          {new Date(sub.creation).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button 
-                              onClick={() => handleApproveSubscription(sub.name, 'Rejected')}
-                              className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30"
-                              title="Từ chối"
-                            >
-                              <XCircle size={18} />
-                            </button>
-                            <button 
-                              onClick={() => handleApproveSubscription(sub.name, 'Approved')}
-                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm shadow-emerald-500/20"
-                            >
-                              <CheckCircle size={16} /> Duyệt
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-
-      {/* OTP Modal for AI Config Unlock */}
+            {/* OTP Modal for AI Config Unlock */}
       {showOtpModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-sm shadow-2xl">

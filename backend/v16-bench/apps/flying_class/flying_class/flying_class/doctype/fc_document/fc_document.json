@@ -12,7 +12,8 @@
   "doc_type",
   "parent_folder",
   "link_url",
-  "teacher"
+  "teacher",
+  "lesson_ref"
  ],
  "fields": [
   {
@@ -56,12 +57,18 @@
    "label": "Gi\u00e1o vi\u00ean",
    "options": "User",
    "reqd": 1
+  },
+  {
+   "fieldname": "lesson_ref",
+   "fieldtype": "Link",
+   "label": "B\u00e0i H\u1ecdc",
+   "options": "FC Lesson"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-26 13:46:01.424077",
+ "modified": "2026-06-06 15:29:51.225800",
  "modified_by": "Administrator",
  "module": "Flying Class",
  "name": "FC Document",
