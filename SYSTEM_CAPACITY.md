@@ -58,3 +58,9 @@ Khả năng chịu tải tổng thể của Flying Class phụ thuộc vào tài
 * **Điểm nghẽn**: Server backend phải tốn băng thông để truyền tải các file JS/CSS nặng của giao diện cho trình duyệt người dùng.
 * **Giải pháp**:
   - Đưa toàn bộ thư mục build `frontend/dist` lên các nền tảng phân phối nội dung như **Cloudflare CDN** hoặc chạy riêng bằng **Nginx static server**. Điều này giúp giảm tải 100% băng thông tải file tĩnh cho máy chủ backend.
+
+#### D. Giới hạn tỷ lệ API AI (Google Gemini Quota)
+* **Điểm nghẽn**: Tài khoản Gemini API miễn phí (Free Tier) bị Google giới hạn gắt gao ở mức 15 Requests/Phút (RPM) và rất dễ trả về lỗi **429 Resource Exhausted**. Điều này có thể làm gián đoạn trải nghiệm người dùng (chặn luồng chat, chặn luồng sinh đề thi).
+* **Giải pháp**:
+  - **Mock Data Fallback**: Hệ thống đã được tích hợp cơ chế tự động hứng lỗi 429. Khi xảy ra lỗi quá tải từ Google, backend sẽ tự động sinh dữ liệu giả lập (đề thi giả lập, tin nhắn cảnh báo giả lập) để luồng UI/UX không bị đứt gãy, giúp người dùng tiếp tục thao tác trên giao diện.
+  - Về dài hạn, cần thêm thông tin thanh toán (Billing) vào Google Cloud Console để mở khóa giới hạn Rate Limit.

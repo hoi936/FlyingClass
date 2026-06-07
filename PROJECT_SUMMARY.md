@@ -21,7 +21,7 @@ graph TD
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Axios, Recharts (Biểu đồ thống kê).
 - **Backend:** Frappe Framework v16 (Python), Gunicorn (Web Server), Werkzeug.
 - **Database & Cache:** PostgreSQL (Lưu trữ quan hệ), Redis (Lưu cache, quản lý hàng đợi tác vụ nền, Realtime PubSub qua Socket.IO).
-- **Trí tuệ nhân tạo:** Tích hợp Google Gemini (Gemini Flash) thông qua thư viện `google-generativeai` để sinh đề thi và trò chuyện về tài liệu.
+- **Trí tuệ nhân tạo:** Tích hợp Google Gemini (mô hình `gemini-2.0-flash`) thông qua thư viện `google-generativeai` để sinh đề thi và trò chuyện. Hệ thống tích hợp sẵn cơ chế **Mock Data Fallback** tự động trả về dữ liệu giả lập khi API Google bị quá tải (lỗi 429).
 - **Thanh toán:** Tích hợp Cổng thanh toán VNPAY (sandbox) để mua các gói cước gia hạn AI.
 
 ---
@@ -94,6 +94,7 @@ Dự án phân quyền người dùng thành 3 vai trò rõ rệt: **Giáo viên
   - Xem bảng ma trận thống kê điểm cao nhất của từng học sinh đối với mỗi đầu điểm bài thi.
   - Xuất bảng điểm lớp học ra file CSV trực tiếp chỉ với một cú click chuột.
   - Theo dõi biểu đồ phân bố điểm số (Cột, Đường, Tròn) của học sinh để đánh giá mức độ tiếp thu bài học.
+- **Quản lý AI (AI Management) [MỚI]:** Xem biểu đồ thống kê (Bar Chart) lượng Token AI đã tiêu thụ trong 7 ngày gần nhất để kiểm soát chi phí.
 
 ### 2. Phân hệ Học sinh (Student Module)
 - **Giao diện Tổng quan:** Xem tổng số lớp học đã tham gia, biểu đồ tăng trưởng điểm số qua các kỳ kiểm tra gần nhất để tự đánh giá năng lực học tập.
@@ -102,8 +103,8 @@ Dự án phân quyền người dùng thành 3 vai trò rõ rệt: **Giáo viên
   - Tích hợp hệ thống theo dõi hành vi: Nếu học sinh chuyển tab trình duyệt, nhấn F5, thu nhỏ màn hình hoặc mở công cụ nhà phát triển, hệ thống sẽ phát cảnh báo vi phạm. Số lần vi phạm sẽ được lưu trữ lại kèm bài làm thi để giáo viên đánh giá độ trung thực.
 - **Realtime Chat:** Tham gia thảo luận bài học cùng các học sinh khác trong lớp, tin nhắn được đẩy tức thời (PubSub) thông qua Socket.IO.
 - **AI Tự Luyện Đề (Practice Mode) [MỚI]:**
-  - Tích hợp công cụ tự luyện đề AI không giới hạn chủ đề. Học sinh chỉ cần nhập chủ đề muốn ôn tập, AI sẽ soạn đề thi thử trắc nghiệm 5-20 câu.
-  - Trải nghiệm làm bài thi thử có tính giờ, sau khi làm xong hệ thống sẽ hiển thị bảng điểm và so sánh chi tiết đáp án đúng/sai từng câu để học sinh sửa lỗi sai.
+  - Tích hợp công cụ tự luyện đề AI không giới hạn chủ đề. Nếu hệ thống API Google bị quá tải do hết Quota (lỗi 429), AI sẽ kích hoạt chế độ **Mock Data**, tự động sinh đề giả lập để học sinh không bị gián đoạn trải nghiệm test UI.
+  - Trải nghiệm làm bài thi thử có tính giờ, sau khi làm xong hệ thống sẽ hiển thị bảng điểm và so sánh chi tiết đáp án đúng/sai.
 - **Trợ lý Tài liệu AI (Document Assistant) [MỚI]:** 
   - Khi học sinh đang mở đọc một tài liệu bất kỳ trong lớp học, có thể bấm nút "Hỏi AI".
   - Màn hình tự động chia làm đôi để hiển thị khung Sidebar Chat AI. AI sẽ tự động đọc nội dung tài liệu (file PDF cục bộ hoặc cào nội dung website ngoài) để làm ngữ cảnh trả lời tất cả các câu hỏi của học sinh về tài liệu đó.

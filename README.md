@@ -1,7 +1,7 @@
 # 🎓 Flying Class - Hệ Thống Quản Lý Lớp Học Trực Tuyến
 
 Chào mừng bạn đến với dự án **Flying Class**! Đây là một hệ thống quản lý học tập (LMS) toàn diện, thông minh và hiện đại bao gồm:
-- **Backend:** Xây dựng bằng Frappe Framework (Python v16 / PostgreSQL).
+- **Backend:** Frappe Framework (Python v16 / PostgreSQL). Mô hình AI tiêu chuẩn: `gemini-2.0-flash`.
 - **Frontend:** Xây dựng bằng React.js, TypeScript, Vite, TailwindCSS và Lucide Icons.
 
 ---
@@ -14,12 +14,13 @@ Chào mừng bạn đến với dự án **Flying Class**! Đây là một hệ 
 - **Quản lý bài thi:** Tạo đề thi thủ công hoặc tự động bằng AI, đặt thời lượng, thời gian mở/đóng bài thi và số lượt thi tối đa.
 - **Bảng điểm tổng hợp (Gradebook) & Xuất CSV [MỚI]:** Xem bảng điểm ma trận của toàn bộ học sinh trong lớp cho tất cả các bài kiểm tra và xuất báo cáo CSV UTF-8 trực tiếp về máy.
 - **Quản lý tài liệu:** Tổ chức bài giảng, tài liệu theo thư mục, hỗ trợ nhúng tài liệu trực quan (Iframe).
+- **Quản lý AI (AI Management):** Xem biểu đồ thống kê tiêu thụ Token AI (Bar Chart) trong vòng 7 ngày gần nhất trực tiếp trên màn hình quản lý lớp học.
 - **Thống kê giáo viên:** Xem biểu đồ trực quan về điểm số trung bình, tỷ lệ đỗ và kết quả của các bài kiểm tra.
 
 ### 🧑‍🎓 Dành Cho Học Sinh (Student)
 - **Dashboard Học Tập:** Xem số lượng lớp học đang tham gia, học phí đã đầu tư, bài thi hoàn thành và biểu đồ tăng trưởng điểm số.
 - **Phòng thi chống gian lận:** Môi trường làm bài thi nghiêm ngặt, cảnh báo vi phạm khi học sinh chuyển tab/giảm tiêu điểm màn hình.
-- **AI Tự Luyện Đề [MỚI]:** Luyện thi thử trắc nghiệm bất cứ lúc nào bằng cách yêu cầu AI (Gemini) soạn đề theo chủ đề tự chọn, có đếm giờ và chấm điểm hiển thị đáp án chi tiết tức thì.
+- **AI Tự Luyện Đề [MỚI]:** Luyện thi thử trắc nghiệm bất cứ lúc nào bằng cách yêu cầu AI (Gemini) soạn đề theo chủ đề tự chọn. Hệ thống có sẵn **Mock Data Fallback** (dữ liệu giả lập) để học sinh không bị gián đoạn nếu API bị lỗi Quota 429.
 - **Trợ lý Tài liệu AI (AI Document Assistant) [MỚI]:** Khung chat AI (Gemini) thông minh tích hợp ngay bên cạnh tài liệu bài học, giúp giải đáp và tóm tắt kiến thức của file tài liệu đang xem.
 - **Thảo luận lớp học:** Kênh chat nhóm thời gian thực (Realtime Chat) kết nối học sinh và giáo viên trong lớp học.
 

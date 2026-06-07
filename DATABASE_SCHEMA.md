@@ -203,7 +203,7 @@ Ghi nhận lưu lượng và chi phí Token sử dụng qua API OpenAI / Gemini.
 
 | Fieldname | Label | Fieldtype | Options / Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `model` | Mô hình sử dụng | Data | - | Ví dụ: `gemini-flash-latest`, `gpt-4o` |
+| `model` | Mô hình sử dụng | Data | - | Ví dụ: `gemini-2.0-flash`, `gpt-4o` |
 | `input_tokens` | Token đầu vào | Int | - | - |
 | `output_tokens` | Token đầu ra | Int | - | - |
 | `action` | Tác vụ thực hiện | Data | - | Ví dụ: `Quiz Gen`, `Doc Chat` |
