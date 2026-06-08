@@ -28,3 +28,5 @@ student_cookies.txt
 login.json
 student_login.json
 .agent/
+test_requests.py
+backend/v16-bench/sites/update_api_key.py
