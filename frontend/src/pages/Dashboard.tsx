@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/useAuthStore';
 import { studentService, classService, api, teacherRatingService } from '../services/api';
 import { useSessionState } from '../hooks/useSessionState';
@@ -102,7 +103,8 @@ const Dashboard = () => {
   // Chat State
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   // Documents & Members State
   const [documents, setDocuments] = useState<any[]>([]);
@@ -329,20 +331,17 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [selectedClass, classDetailTab]);
 
-  useEffect(() => {
-    if (selectedClass && classDetailTab === 'course_outline') {
-      // Data is fetched inside StudentCourseOutline
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-    if (selectedClass && classDetailTab === 'members') {
-      fetchMembers();
-    }
-  }, [selectedClass, classDetailTab]);
+  };
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (classDetailTab === 'chat') {
+      setTimeout(scrollToBottom, 50);
     }
-  }, [chatMessages]);
+  }, [chatMessages, classDetailTab]);
 
   // Exam Timer
   useEffect(() => {
@@ -495,6 +494,9 @@ const Dashboard = () => {
   useEffect(() => {
     if (classDetailTab === 'documents') {
       fetchDocuments();
+    }
+    if (classDetailTab === 'members') {
+      fetchMembers();
     }
   }, [classDetailTab, currentFolderId]);
 
@@ -1251,7 +1253,7 @@ const Dashboard = () => {
             <div className="p-4 bg-white/80 dark:bg-slate-800/80 border-b border-slate-200/50 dark:border-slate-700/50">
               <h3 className="font-bold text-slate-900 dark:text-white flex items-center"><MessageSquare size={18} className="mr-2 text-blue-400"/> Kênh thảo luận chung</h3>
             </div>
-            <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
+            <div ref={chatContainerRef} className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
               {chatMessages.length === 0 && (
                 <div className="text-center text-slate-500 text-sm">Chưa có tin nhắn.</div>
               )}
@@ -1285,8 +1287,16 @@ const Dashboard = () => {
                       {isExamAnnouncement && examTitle && (
                         <div className="mt-3 border-t border-slate-300 dark:border-slate-600 pt-3">
                            <button 
-                             onClick={() => {
-                               const linkedExam = dashData?.upcoming_exams?.find((e: any) => e.title === examTitle);
+                             onClick={async () => {
+                               let latestData = dashData;
+                               if (!latestData?.upcoming_exams?.find((e: any) => e.title.trim() === examTitle.trim())) {
+                                  try {
+                                    const res = await api.get('/api/method/flying_class.flying_class.api.get_student_dashboard_data');
+                                    latestData = res.data.message;
+                                    setDashData(latestData);
+                                  } catch (e) {}
+                               }
+                               const linkedExam = latestData?.upcoming_exams?.find((e: any) => e.title.trim() === examTitle.trim());
                                if (linkedExam) {
                                   setActiveMenu('exams');
                                   setTimeout(() => confirmAndStartExam(linkedExam), 100);
@@ -1304,7 +1314,7 @@ const Dashboard = () => {
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
+              
             </div>
             <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200/50 dark:border-slate-700/50 flex gap-3">
               <input 
@@ -1361,11 +1371,10 @@ const Dashboard = () => {
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2"><Star size={14} className="text-amber-500" fill="currentColor"/> Bảng Xếp Hạng Lớp (Top 3)</h4>
               <div className="flex justify-center items-end gap-4 h-56 bg-gradient-to-t from-slate-100 to-transparent dark:from-slate-800 rounded-xl border-b-4 border-amber-400 p-4 relative pt-12">
                 {(() => {
-                  const sortedMembers = [...members].sort((a, b) => {
-                    const scoreA = a.total_score || ((a.email?.length || 0) * 8 + (a.full_name?.length || 0) * 5);
-                    const scoreB = b.total_score || ((b.email?.length || 0) * 8 + (b.full_name?.length || 0) * 5);
-                    return scoreB - scoreA;
-                  });
+                  const sortedMembers = [...members]
+                    .map(m => ({ ...m, score: m.total_score || 0 }))
+                    .filter(m => m.score > 0)
+                    .sort((a, b) => b.score - a.score);
                   const top3 = sortedMembers.slice(0, 3);
                   if (top3.length === 0) return <div className="text-slate-500 self-center">Chưa có dữ liệu</div>;
 
@@ -1375,10 +1384,10 @@ const Dashboard = () => {
                       {top3[1] && (
                         <div className="flex flex-col items-center justify-end h-[70%] w-1/3">
                           <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xl font-bold mb-2 border-2 border-slate-300">
-                            {top3[1].full_name?.charAt(0)}
+                            {top3[1].full_name?.charAt(0)?.toUpperCase()}
                           </div>
                           <div className="text-sm font-bold truncate w-full text-center text-slate-700 dark:text-slate-300">{top3[1].full_name}</div>
-                          <div className="text-xs text-slate-500 mt-1">{top3[1].total_score || ((top3[1].email?.length || 0) * 8 + (top3[1].full_name?.length || 0) * 5)} điểm</div>
+                          <div className="text-xs text-slate-500 mt-1">{top3[1].score} điểm</div>
                           <div className="w-full bg-slate-300 dark:bg-slate-600 rounded-t-lg mt-2 flex-1 flex items-start justify-center pt-2 font-bold text-slate-600 dark:text-slate-300 text-lg">2</div>
                         </div>
                       )}
@@ -1387,21 +1396,21 @@ const Dashboard = () => {
                         <div className="flex flex-col items-center justify-end h-full w-1/3 z-10 relative">
                           <div className="absolute -top-10 animate-bounce"><Star fill="#f59e0b" className="text-amber-500 drop-shadow-md" size={32}/></div>
                           <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-2xl font-bold mb-2 border-4 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)]">
-                            {top3[0].full_name?.charAt(0)}
+                            {top3[0].full_name?.charAt(0)?.toUpperCase()}
                           </div>
                           <div className="text-sm font-bold truncate w-full text-center text-amber-600 dark:text-amber-400">{top3[0].full_name}</div>
-                          <div className="text-xs text-amber-500/80 mt-1 font-bold">{top3[0].total_score || ((top3[0].email?.length || 0) * 8 + (top3[0].full_name?.length || 0) * 5)} điểm</div>
+                          <div className="text-xs text-amber-500/80 mt-1 font-bold">{top3[0].score} điểm</div>
                           <div className="w-full bg-gradient-to-b from-amber-400 to-amber-500 rounded-t-lg mt-2 flex-1 flex items-start justify-center pt-2 font-bold text-white text-2xl shadow-lg">1</div>
                         </div>
                       )}
                       {/* Top 3 */}
                       {top3[2] && (
-                        <div className="flex flex-col items-center justify-end h-[55%] w-1/3">
+                        <div className="flex flex-col items-center justify-end h-[60%] w-1/3">
                           <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center text-orange-600 dark:text-orange-400 text-lg font-bold mb-2 border-2 border-orange-300">
-                            {top3[2].full_name?.charAt(0)}
+                            {top3[2].full_name?.charAt(0)?.toUpperCase()}
                           </div>
                           <div className="text-sm font-bold truncate w-full text-center text-orange-700 dark:text-orange-400">{top3[2].full_name}</div>
-                          <div className="text-xs text-slate-500 mt-1">{top3[2].total_score || ((top3[2].email?.length || 0) * 8 + (top3[2].full_name?.length || 0) * 5)} điểm</div>
+                          <div className="text-xs text-slate-500 mt-1">{top3[2].score} điểm</div>
                           <div className="w-full bg-orange-300 dark:bg-orange-700 rounded-t-lg mt-2 flex-1 flex items-start justify-center pt-2 font-bold text-orange-800 dark:text-orange-200 text-lg">3</div>
                         </div>
                       )}

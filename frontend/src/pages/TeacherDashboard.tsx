@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useAuthStore } from '../store/useAuthStore';
 import { teacherService, classService } from '../services/api';
@@ -53,6 +54,8 @@ const TeacherDashboard = () => {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   // Exam Management State
   const [examsList, setExamsList] = useState<any[]>([]);
@@ -537,9 +540,12 @@ const TeacherDashboard = () => {
     document.body.removeChild(link);
   };
 
+  // Polling for Chat
   useEffect(() => {
+    let interval: any;
     if (selectedClass && classDetailTab === 'chat') {
       fetchChatMessages();
+      interval = setInterval(fetchChatMessages, 5000);
     }
     if (selectedClass && classDetailTab === 'students') {
       fetchClassStudents();
@@ -550,7 +556,20 @@ const TeacherDashboard = () => {
     if (selectedClass && classDetailTab === 'gradebook') {
       fetchClassGradebook();
     }
+    return () => clearInterval(interval);
   }, [selectedClass, classDetailTab, currentFolderId]);
+
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    if (classDetailTab === 'chat') {
+      setTimeout(scrollToBottom, 50);
+    }
+  }, [chatMessages, classDetailTab]);
 
   const fetchDocuments = async () => {
     if(!selectedClass) return;
@@ -807,7 +826,8 @@ const TeacherDashboard = () => {
 
   const fetchChatMessages = async () => {
     try {
-      setChatLoading(true);
+      // Do NOT setChatLoading(true) here as it unmounts the messages and resets scroll!
+      // setChatLoading(true);
       const msgs = await classService.getChatMessages(selectedClass.id);
       setChatMessages(msgs.messages);
     } catch (err) {
@@ -1647,9 +1667,9 @@ const TeacherDashboard = () => {
             <div className="p-4 bg-white/80 dark:bg-slate-800/80 border-b border-slate-200/50 dark:border-slate-700/50">
               <h3 className="font-bold text-slate-900 dark:text-white flex items-center"><MessageSquare size={18} className="mr-2 text-blue-400"/> Kênh thảo luận chung</h3>
             </div>
-            <div className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
-              {chatLoading && <div className="text-center text-slate-500 text-sm">Đang tải tin nhắn...</div>}
-              {!chatLoading && chatMessages.map((msg, idx) => (
+            <div ref={chatContainerRef} className="flex-1 p-6 overflow-y-auto space-y-4 custom-scrollbar">
+              {chatMessages.length === 0 && <div className="text-center text-slate-500 text-sm">Chưa có tin nhắn...</div>}
+              {chatMessages.map((msg, idx) => (
                 <div key={msg.id || idx} className={`flex flex-col ${msg.is_teacher ? 'items-end' : 'items-start'}`}>
                   <span className="text-xs text-slate-600 dark:text-slate-400 mb-1 px-1">{msg.sender} • {msg.time}</span>
                   <div className={`max-w-[70%] p-3 rounded-2xl ${msg.is_teacher ? 'bg-blue-600 text-slate-900 dark:text-white rounded-br-none' : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-bl-none'}`}>

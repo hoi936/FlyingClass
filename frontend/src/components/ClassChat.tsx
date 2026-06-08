@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
+import { io, Socket } from 'socket.io-client';
 
 interface Message {
   id: string;
@@ -20,11 +21,53 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const socketRef = useRef<Socket | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    // Small delay to ensure DOM has updated
+    setTimeout(scrollToBottom, 50);
+  }, [messages]);
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Poll every 5s
-    return () => clearInterval(interval);
+    
+    // Connect to Socket.IO server
+    const socket = io();
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Socket.IO connected');
+    });
+
+    const eventName = `class_chat_${classId}`;
+    socket.on(eventName, (newMessage: any) => {
+      // Convert incoming message format to match our local format
+      const msg: Message = {
+        id: newMessage.name,
+        sender_email: newMessage.sender,
+        sender: newMessage.sender_name,
+        message: newMessage.content,
+        time: newMessage.creation,
+        is_teacher: newMessage.sender === newMessage.sender_email ? 0 : 1 // Approximate, but fetchMessages handles accurate roles on reload
+      };
+      
+      setMessages(prev => {
+        // Prevent duplicate messages if already sent by us
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [classId]);
 
   const fetchMessages = async () => {
@@ -62,7 +105,7 @@ const ClassChat: React.FC<ClassChatProps> = ({ classId }) => {
         </h3>
       </div>
       
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+      <div ref={chatContainerRef} className="flex-1 p-4 overflow-y-auto space-y-4">
         {loading && messages.length === 0 ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>

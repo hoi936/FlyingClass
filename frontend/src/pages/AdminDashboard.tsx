@@ -488,13 +488,21 @@ const AdminDashboard = () => {
                   </span>
                 </td>
                 <td className="p-4">
-                  {u.role === 'FC Student' || u.role === 'FC Admin' ? (
+                  {u.role === 'FC Admin' ? (
                     <span className="text-slate-500">-</span>
+                  ) : u.role === 'FC Student' ? (
+                    <div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+                        ✓ Free (Học sinh)
+                      </span>
+                      <div className="text-[11px] text-blue-400 mt-1 font-medium">Token: {u.used_tokens?.toLocaleString() || 0} / {u.token_limit?.toLocaleString() || 0}</div>
+                    </div>
                   ) : u.ai_subscription_active ? (
                     <div>
                       <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
                         ✓ Active - Gói {u.ai_package_type === 'Pro' || u.ai_package_type === 'Pro_Monthly' ? 'Pro' : 'Thường'}
                       </span>
+                      <div className="text-[11px] text-blue-400 mt-1 font-medium">Token: {u.used_tokens?.toLocaleString() || 0} / {u.token_limit?.toLocaleString() || 0}</div>
                       {u.ai_expiration_date && (
                         <div className="text-[11px] text-slate-500 mt-1 ml-1">Hết hạn: {new Date(u.ai_expiration_date).toLocaleDateString('vi-VN')}</div>
                       )}
@@ -504,6 +512,7 @@ const AdminDashboard = () => {
                       <span className="text-xs px-2 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 font-medium flex items-center inline-flex">
                         ⚠ Hết hạn
                       </span>
+                      <div className="text-[11px] text-blue-400 mt-1 font-medium">Token: {u.used_tokens?.toLocaleString() || 0} / {u.token_limit?.toLocaleString() || 0}</div>
                       <div className="text-[11px] text-slate-500 mt-1 ml-1">{new Date(u.ai_expiration_date).toLocaleDateString('vi-VN')}</div>
                     </div>
                   ) : (
@@ -624,7 +633,7 @@ const AdminDashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={financeStats?.revenue_by_package || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="packageId" stroke="#94a3b8" tickFormatter={(v) => v === 'Normal' || v === 'Monthly' ? 'Thường' : v === 'Pro_Monthly' ? 'Pro' : v} />
+                <XAxis dataKey="packageId" stroke="#94a3b8" tickFormatter={(v) => v === 'Normal' || v === 'Monthly' ? 'Thường' : v === 'Pro_Monthly' ? 'Pro' : v.startsWith('Custom_') ? 'Token Lẻ' : v} />
                 <YAxis stroke="#94a3b8" />
                 <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }} />
                 <Bar dataKey="revenue" name="Doanh thu" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={80} />
@@ -634,7 +643,7 @@ const AdminDashboard = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-2 gap-6 max-w-2xl">
+      <div className="grid grid-cols-3 gap-6 max-w-4xl">
         <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-sm">
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Gói: 1 Tháng</p>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white">199.000 đ</h3>
@@ -644,6 +653,15 @@ const AdminDashboard = () => {
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Gói: Pro_Monthly</p>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white">298.500 đ</h3>
           <p className="text-slate-500 text-xs mt-1">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Pro_Monthly')?.orders || 0} đơn hàng</p>
+        </div>
+        <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Gói: Token Lẻ</p>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+            {financeStats?.revenue_by_package?.filter((p:any) => p.packageId?.startsWith('Custom_')).reduce((s:number, p:any) => s + p.revenue, 0).toLocaleString() || 0} đ
+          </h3>
+          <p className="text-slate-500 text-xs mt-1">
+            {financeStats?.revenue_by_package?.filter((p:any) => p.packageId?.startsWith('Custom_')).reduce((s:number, p:any) => s + p.orders, 0) || 0} đơn hàng
+          </p>
         </div>
       </div>
 
@@ -671,7 +689,7 @@ const AdminDashboard = () => {
                   <td className="p-4 text-slate-900 dark:text-white">{t.teacher}</td>
                   <td className="p-4 text-slate-700 dark:text-slate-300">
                     <span className="bg-blue-500/10 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 px-2 py-1 rounded text-xs">
-                      {t.package_type === 'Monthly' ? 'Thường' : t.package_type === 'Pro_Monthly' ? 'Pro' : t.package_type}
+                      {t.package_type === 'Monthly' ? 'Thường' : t.package_type === 'Pro_Monthly' ? 'Pro' : t.package_type?.startsWith('Custom_') ? 'Token Lẻ' : t.package_type}
                     </span>
                   </td>
                   <td className="p-4 font-bold text-slate-900 dark:text-white">{(t.amount || 0).toLocaleString()}</td>

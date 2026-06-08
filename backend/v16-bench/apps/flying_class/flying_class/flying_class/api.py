@@ -735,6 +735,24 @@ def get_class_students(class_id):
     if class_doc.teacher != user and "FC Admin" not in frappe.get_roles(user) and not is_student:
         frappe.throw(_("Bạn không có quyền xem danh sách này!"))
         
+    score_map = {}
+    try:
+        scores = frappe.db.sql("""
+            SELECT student, SUM(max_score) as total_score
+            FROM (
+                SELECT r.student, r.exam_ref, MAX(r.score) as max_score
+                FROM `tabFC Exam Result` r
+                JOIN `tabFC Exam` e ON r.exam_ref = e.name
+                WHERE e.class_ref = %s
+                GROUP BY r.student, r.exam_ref
+            ) as max_scores
+            GROUP BY student
+        """, class_id, as_dict=True)
+        for s in scores:
+            score_map[s.student] = s.total_score
+    except Exception:
+        pass
+
     students = []
     for member in class_doc.students:
         user_doc = frappe.get_doc("User", member.student)
@@ -742,7 +760,8 @@ def get_class_students(class_id):
             "email": member.student,
             "full_name": user_doc.full_name,
             "join_date": member.join_date,
-            "is_muted": getattr(member, 'is_muted', 0)
+            "is_muted": getattr(member, 'is_muted', 0),
+            "total_score": float(score_map.get(member.student, 0))
         })
     return {"students": students}
 
@@ -1892,6 +1911,19 @@ def send_class_message(class_id, content):
     })
     doc.insert(ignore_permissions=True)
     frappe.db.commit()
+    
+    sender_name = frappe.db.get_value("User", doc.sender, "full_name") or doc.sender
+    frappe.publish_realtime(
+        event=f"class_chat_{class_id}",
+        message={
+            "name": doc.name,
+            "sender": doc.sender,
+            "sender_name": sender_name,
+            "content": doc.content,
+            "creation": doc.creation
+        },
+        after_commit=True
+    )
     
     return {"success": True}
 

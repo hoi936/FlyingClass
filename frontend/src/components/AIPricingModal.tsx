@@ -160,6 +160,47 @@ const AIPricingModal: React.FC<AIPricingModalProps> = ({ isOpen, onClose }) => {
     return basePrice * (1 - discount / 100);
   };
 
+  const isPackageDisabled = (pkgId: string) => {
+    if (pkgId === 'Custom_Monthly') return false;
+    if (!activePackage || !activePackage.active) return false;
+    
+    const currentType = activePackage.package_type;
+    if (currentType === 'Custom' || currentType === 'Token Lẻ') return false;
+
+    if (currentType === 'Pro' || currentType === 'Pro_Monthly' || currentType === 'Pro_Yearly') {
+      return true;
+    }
+    
+    if (currentType === 'Normal' || currentType === 'Monthly' || currentType === 'Yearly') {
+      if (pkgId === 'Monthly' || pkgId === 'Yearly') return true;
+      return false;
+    }
+    
+    return false;
+  };
+
+  const getButtonLabel = (pkgId: string) => {
+    if (pkgId === 'Custom_Monthly') return 'Đăng ký ngay';
+    if (!activePackage || !activePackage.active) return 'Đăng ký ngay';
+    
+    const currentType = activePackage.package_type;
+    if (currentType === 'Custom' || currentType === 'Token Lẻ') return 'Đăng ký ngay';
+    
+    if (currentType === 'Pro' || currentType === 'Pro_Monthly' || currentType === 'Pro_Yearly') {
+      return 'Chỉ có thể mua Token Lẻ';
+    }
+    
+    if (currentType === 'Normal' || currentType === 'Monthly' || currentType === 'Yearly') {
+      if (pkgId === 'Monthly' || pkgId === 'Yearly') {
+        return 'Bạn đang có gói Thường';
+      } else {
+        return 'Nâng cấp lên Pro';
+      }
+    }
+    
+    return 'Đăng ký ngay';
+  };
+
   if (!isOpen) return null;
 
   const getPackagePriceAndAmount = (pkg: AIPackage) => {
@@ -488,7 +529,7 @@ const AIPricingModal: React.FC<AIPricingModalProps> = ({ isOpen, onClose }) => {
                     {/* Subscription Button */}
                     <button
                       onClick={() => handleSelectPackage(pkg)}
-                      disabled={activePackage && pkg.id !== 'Custom_Monthly'}
+                      disabled={isPackageDisabled(pkg.id)}
                       className={`w-full py-3.5 px-4 font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                         pkg.featured
                           ? isPro
@@ -501,7 +542,7 @@ const AIPricingModal: React.FC<AIPricingModalProps> = ({ isOpen, onClose }) => {
                               : 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20'
                       }`}
                     >
-                      {activePackage && pkg.id !== 'Custom_Monthly' ? 'Bạn đã có gói này' : 'Đăng ký ngay'}
+                      {getButtonLabel(pkg.id)}
                     </button>
                   </div>
                 );

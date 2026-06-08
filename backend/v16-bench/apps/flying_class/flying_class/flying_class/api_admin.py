@@ -101,10 +101,46 @@ def get_all_users():
         ai_expiration_date = u.get("custom_ai_expiration_date")
         ai_subscription_active = False
         ai_package_type = ""
-        if role == "FC Teacher" and ai_expiration_date:
+        used_tokens = 0
+        token_limit = 0
+        
+        if role in ["FC Teacher", "FC Student"]:
             from frappe.utils import getdate, today
-            ai_subscription_active = getdate(ai_expiration_date) >= getdate(today())
+            if ai_expiration_date:
+                ai_subscription_active = getdate(ai_expiration_date) >= getdate(today())
             ai_package_type = u.get("custom_ai_package_type") or "Normal"
+            
+            try:
+                from flying_class.flying_class.api import get_subscription_start_date, get_user_token_usage
+                
+                total_custom_tokens = 0
+                orders = frappe.db.sql("""
+                    SELECT package_type FROM `tabFC AI Subscription Order`
+                    WHERE teacher = %s AND status IN ('Paid', 'Approved') AND package_type LIKE %s
+                """, (u.email, 'Custom_%'), as_dict=True)
+                for o in orders:
+                    try:
+                        total_custom_tokens += int(o.package_type.split("_")[1])
+                    except:
+                        pass
+                
+                if role == "FC Teacher":
+                    start_date = get_subscription_start_date(u.email)
+                    base_limit = 120000 if ai_package_type == "Pro" else 50000
+                    if not ai_subscription_active:
+                        base_limit = 0
+                    token_limit = base_limit + total_custom_tokens
+                    used_tokens = get_user_token_usage(u.email, start_date)
+                    
+                    if not ai_subscription_active and total_custom_tokens > 0:
+                        ai_subscription_active = True
+                        ai_package_type = "Token Lẻ"
+                else:
+                    token_limit = 50000
+                    used_tokens = get_user_token_usage(u.email)
+            except Exception:
+                used_tokens = 0
+                token_limit = 50000 if role == "FC Student" else 0
             
         result.append({
             "id": u.name,
@@ -115,7 +151,9 @@ def get_all_users():
             "joinDate": u.joinDate.strftime("%Y-%m-%d") if u.joinDate else "",
             "ai_subscription_active": ai_subscription_active,
             "ai_expiration_date": ai_expiration_date,
-            "ai_package_type": ai_package_type
+            "ai_package_type": ai_package_type,
+            "used_tokens": used_tokens,
+            "token_limit": token_limit
         })
     return result
 
@@ -627,6 +665,15 @@ def approve_subscription(order_id, status):
             tier = "Pro" if "Pro" in order.package_type else "Normal"
             if any(df.fieldname == "custom_ai_package_type" for df in frappe.get_meta("User").fields):
                 teacher_user.db_set("custom_ai_package_type", tier)
+        else:
+            # Token lẻ extends expiration date by 30 days
+            current_exp = teacher_user.get("custom_ai_expiration_date")
+            from frappe.utils import add_days, getdate, today
+            start_date = getdate(today())
+            if current_exp and getdate(current_exp) > start_date:
+                start_date = getdate(current_exp)
+            new_exp = add_days(start_date, 30)
+            teacher_user.db_set("custom_ai_expiration_date", new_exp)
                 
         if any(df.fieldname == "custom_ai_trial_messages_used" for df in frappe.get_meta("User").fields):
             teacher_user.db_set("custom_ai_trial_messages_used", 0)
