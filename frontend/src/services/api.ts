@@ -558,13 +558,15 @@ export const studentService = {
   },
   
   getDashboardData: async () => {
-    const res = await api.get('/api/method/flying_class.flying_class.api.get_student_dashboard_data');
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_student_dashboard_data', {
+      params: { _t: Date.now() }
+    });
     return res.data.message;
   },
   
   getExamResults: async (time_filter?: string) => {
     const res = await api.get('/api/method/flying_class.flying_class.api.get_student_exam_results', {
-      params: { time_filter }
+      params: { time_filter, _t: Date.now() }
     });
     return res.data.message;
   },

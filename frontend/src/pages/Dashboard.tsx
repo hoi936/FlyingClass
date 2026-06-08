@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { studentService, classService, api } from '../services/api';
+import { studentService, classService, api, teacherRatingService } from '../services/api';
 import { useSessionState } from '../hooks/useSessionState';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -12,6 +12,10 @@ import {
 } from 'lucide-react';
 import { useThemeStore } from '../store/useThemeStore';
 import { StudentCourseOutline } from '../components/StudentCourseOutline';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const MultiSelectDropdown = ({ options, selected, onChange, placeholder }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -645,6 +649,8 @@ const Dashboard = () => {
       alert(err.response?.data?.message || "Lỗi nộp bài");
     } finally {
       setExamSubmitting(false);
+      fetchExamResults();
+      fetchDashData();
       setRefreshKey(k => k + 1); // Refresh dashboard to update completed exams
     }
   };
@@ -857,9 +863,13 @@ const Dashboard = () => {
           <div className="space-y-8 flex-1 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
             {aiMockQuestions.map((q, idx) => (
               <div key={idx} className="bg-slate-50 dark:bg-slate-900/55 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
-                <h4 className="font-medium text-slate-900 dark:text-white text-lg mb-4">
-                  <span className="text-indigo-400 font-bold mr-2">Câu {idx + 1}:</span>
-                  {q.question_text}
+                <h4 className="font-medium text-slate-900 dark:text-white text-lg mb-4 flex items-start">
+                  <span className="text-indigo-400 font-bold mr-2 whitespace-nowrap">Câu {idx + 1}:</span>
+                  <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                      {q.question_text || ''}
+                    </ReactMarkdown>
+                  </div>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {['A', 'B', 'C', 'D'].map(opt => {
@@ -871,7 +881,12 @@ const Dashboard = () => {
                         onClick={() => setAiMockAnswers({...aiMockAnswers, [idx]: opt})}
                         className={`p-4 rounded-lg border cursor-pointer transition-all flex items-start ${isSelected ? 'bg-indigo-600/20 border-indigo-500 shadow-md text-slate-900 dark:text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-500 text-slate-700 dark:text-slate-300'}`}
                       >
-                        <span className="font-bold mr-2">{opt}.</span> {q[optKey]}
+                        <span className="font-bold mr-2">{opt}.</span> 
+                        <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                            {q[optKey] || ''}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     );
                   })}
@@ -908,13 +923,17 @@ const Dashboard = () => {
 
               return (
                 <div key={idx} className={`p-6 rounded-xl border ${isCorrect ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
-                  <h4 className="font-medium text-slate-900 dark:text-white text-lg mb-4 flex items-center gap-2">
-                    <span className="text-indigo-400 font-bold">Câu {idx + 1}:</span>
-                    {q.question_text}
+                  <h4 className="font-medium text-slate-900 dark:text-white text-lg mb-4 flex items-start gap-2">
+                    <span className="text-indigo-400 font-bold whitespace-nowrap">Câu {idx + 1}:</span>
+                    <div className="inline-block flex-1 prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        {q.question_text || ''}
+                      </ReactMarkdown>
+                    </div>
                     {isCorrect ? (
-                      <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">Chính xác</span>
+                      <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Chính xác</span>
                     ) : (
-                      <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full font-bold">Sai</span>
+                      <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Sai</span>
                     )}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
@@ -932,7 +951,12 @@ const Dashboard = () => {
 
                       return (
                         <div key={opt} className={`p-4 rounded-lg border ${style} flex items-start text-sm`}>
-                          <span className="font-bold mr-2">{opt}.</span> {q[optKey]}
+                          <span className="font-bold mr-2">{opt}.</span>
+                          <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                              {q[optKey] || ''}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       );
                     })}
@@ -1786,9 +1810,13 @@ const Dashboard = () => {
           <div className="max-w-4xl mx-auto space-y-8 pb-20">
             {examDetails?.questions?.map((q: any, i: number) => (
               <div key={q.id} className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-6">
-                  <span className="text-blue-400 mr-2 font-bold">Câu {i + 1}:</span>
-                  {q.question_text}
+                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-6 flex items-start">
+                  <span className="text-blue-400 font-bold mr-2 whitespace-nowrap">Câu {i + 1}:</span>
+                  <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                      {q.question_text || ''}
+                    </ReactMarkdown>
+                  </div>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {['A', 'B', 'C', 'D'].map(opt => {
@@ -1805,7 +1833,11 @@ const Dashboard = () => {
                         </div>
                         <div>
                           <span className="font-bold mr-2 text-slate-700 dark:text-slate-300">{opt}.</span>
-                          <span className="text-slate-800 dark:text-slate-200">{q[optKey]}</span>
+                          <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                              {q[optKey] || ''}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2227,14 +2259,21 @@ const Dashboard = () => {
                           <Bot size={16} />
                         </div>
                       )}
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm max-w-[80%] shadow-sm leading-relaxed ${
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm max-w-[80%] shadow-sm leading-relaxed overflow-x-auto ${
                         isUser 
                           ? 'bg-blue-600 text-white rounded-tr-none' 
                           : m.text.includes("429 Insufficient Quota") || m.text.includes("hạn mức 50,000 token")
                             ? 'bg-red-950/50 text-red-200 border border-red-900/40 rounded-tl-none'
                             : 'bg-slate-800/80 text-slate-200 border border-slate-700/30 rounded-tl-none'
                       }`}>
-                        {m.text}
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkMath]} 
+                            rehypePlugins={[rehypeKatex]}
+                          >
+                            {m.text}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   );

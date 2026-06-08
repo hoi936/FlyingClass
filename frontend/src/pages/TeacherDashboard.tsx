@@ -19,6 +19,10 @@ import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
 import AIPricingModal from '../components/AIPricingModal';
 import { CourseOutlineManager } from '../components/CourseOutlineManager';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const TeacherDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -2345,7 +2349,14 @@ const TeacherDashboard = () => {
               <div className={`flex flex-col ${log.sender === 'Bạn' ? 'items-end' : 'items-start'}`}>
                 <div className={`p-4 rounded-2xl text-sm leading-relaxed ${log.sender === 'Bạn' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none shadow-lg'}`}>
                   <div className={`text-xs opacity-70 font-bold mb-2 ${log.sender === 'Bạn' ? 'text-blue-200 text-right' : 'text-indigo-400 text-left'}`}>{log.sender}</div>
-                  <div className="whitespace-pre-wrap">{log.text}</div>
+                  <div className="overflow-x-auto prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkMath]} 
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {log.text}
+                    </ReactMarkdown>
+                  </div>
                   {log.questions && log.questions.length > 0 && (
                     <div className="mt-4 space-y-4 w-full min-w-[400px]">
                       <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
@@ -2353,12 +2364,43 @@ const TeacherDashboard = () => {
                       </div>
                       {log.questions.map((q: any, idx: number) => (
                         <div key={idx} className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 text-left">
-                          <p className="font-bold text-slate-900 dark:text-white mb-2">Câu {idx+1}. {q.question_text}</p>
+                          <div className="font-bold text-slate-900 dark:text-white mb-2 flex">
+                            <span className="whitespace-nowrap mr-2">Câu {idx+1}.</span>
+                            <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                {q.question_text || ''}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
                           <ul className="space-y-1 text-slate-700 dark:text-slate-300 ml-2">
-                            <li>A. {q.option_a} {q.correct_answer === 'A' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}</li>
-                            <li>B. {q.option_b} {q.correct_answer === 'B' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}</li>
-                            <li>C. {q.option_c} {q.correct_answer === 'C' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}</li>
-                            <li>D. {q.option_d} {q.correct_answer === 'D' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}</li>
+                            <li className="flex items-start">
+                              <span className="mr-2">A.</span> 
+                              <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.option_a || ''}</ReactMarkdown>
+                              </div>
+                              {q.correct_answer === 'A' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}
+                            </li>
+                            <li className="flex items-start">
+                              <span className="mr-2">B.</span> 
+                              <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.option_b || ''}</ReactMarkdown>
+                              </div>
+                              {q.correct_answer === 'B' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}
+                            </li>
+                            <li className="flex items-start">
+                              <span className="mr-2">C.</span> 
+                              <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.option_c || ''}</ReactMarkdown>
+                              </div>
+                              {q.correct_answer === 'C' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}
+                            </li>
+                            <li className="flex items-start">
+                              <span className="mr-2">D.</span> 
+                              <div className="inline-block prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{q.option_d || ''}</ReactMarkdown>
+                              </div>
+                              {q.correct_answer === 'D' && <span className="text-emerald-400 ml-2 font-bold">✓</span>}
+                            </li>
                           </ul>
                         </div>
                       ))}
@@ -2541,9 +2583,43 @@ const TeacherDashboard = () => {
                 <div key={qi} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
                   <div className="flex items-start gap-3 mb-4">
                     <span className="shrink-0 w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 font-bold text-sm flex items-center justify-center">{qi+1}</span>
-                    <textarea value={q.question_text} onChange={e => { const nq = [...builderQuestions]; nq[qi].question_text = e.target.value; setBuilderQuestions(nq); }}
-                      placeholder={`Nội dung câu hỏi ${qi+1}...`} rows={2}
-                      className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none resize-none"/>
+                    <div className="flex-1 flex flex-col gap-2">
+                      <textarea value={q.question_text} onChange={e => { const nq = [...builderQuestions]; nq[qi].question_text = e.target.value; setBuilderQuestions(nq); }}
+                        placeholder={`Nội dung câu hỏi ${qi+1}... (Hỗ trợ Markdown)`} rows={3}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none resize-none"/>
+                      
+                      <div className="flex justify-start">
+                        <label className="cursor-pointer text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1.5 transition">
+                          <ImageIcon size={14} />
+                          Đính kèm ảnh
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            if(e.target.files && e.target.files[0]) {
+                              try {
+                                const url = await classService.uploadFile(e.target.files[0]);
+                                const nq = [...builderQuestions];
+                                const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || ''}${url}`;
+                                nq[qi].question_text = nq[qi].question_text + `\n\n![Hình ảnh](${fullUrl})`;
+                                setBuilderQuestions(nq);
+                              } catch(err) {
+                                alert("Lỗi tải ảnh lên!");
+                              }
+                            }
+                            e.target.value = '';
+                          }} />
+                        </label>
+                      </div>
+
+                      {q.question_text && (
+                        <div className="mt-1 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                          <div className="text-xs text-slate-500 mb-2 font-bold uppercase">Xem trước</div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                              {q.question_text}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <button onClick={() => { const nq = [...builderQuestions]; nq.splice(qi, 1); setBuilderQuestions(nq); }}
                       className="shrink-0 text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition mt-0.5" title="Xóa câu hỏi">
                       <Trash2 size={18}/>

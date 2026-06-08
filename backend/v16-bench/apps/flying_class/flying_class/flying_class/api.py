@@ -1281,7 +1281,7 @@ def _check_token_limit(user):
 # ─── GEMINI MODEL CONSTANTS ─────────────────────────────────────────────────
 # Tất cả tính năng AI đều dùng 1 model duy nhất: gemini-2.0-flash (nhanh, miễn phí rate cao)
 # Sự khác biệt giữa các gói chỉ là giới hạn token, không phải model
-FLYINGCLASS_AI_MODEL = "models/gemini-2.0-flash"
+FLYINGCLASS_AI_MODEL = "models/gemini-2.5-flash"
 
 
 def _get_gemini_api_key():
