@@ -658,6 +658,15 @@ const TeacherDashboard = () => {
     }
   };
 
+  const handleApproveStudent = async (email: string, approve: number) => {
+    try {
+      await teacherService.approveStudent(selectedClass.id, email, approve);
+      fetchClassStudents();
+    } catch(err: any) {
+      alert(err.response?.data?.message || err.message || 'Error');
+    }
+  };
+
   const handleRemoveStudent = async (email: string) => {
     if(window.confirm('Bạn có chắc chắn muốn kick học sinh này?')) {
       try {
@@ -1784,6 +1793,36 @@ const TeacherDashboard = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar min-h-[300px]">
+              {/* Danh sách chờ duyệt */}
+              {classStudents.filter(s => s.join_status === 'Pending').length > 0 && (
+                <div className="mb-6 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800 p-4">
+                  <h4 className="text-sm font-bold text-amber-700 dark:text-amber-500 mb-3 uppercase tracking-wider">Danh sách chờ duyệt ({classStudents.filter(s => s.join_status === 'Pending').length})</h4>
+                  <table className="w-full text-left border-collapse bg-white dark:bg-slate-800 rounded-lg overflow-hidden shadow-sm">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-sm border-b border-slate-200 dark:border-slate-700">
+                        <th className="p-3 font-medium">Họ tên</th>
+                        <th className="p-3 font-medium">Email</th>
+                        <th className="p-3 font-medium text-right">Duyệt / Từ chối</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                      {classStudents.filter(s => s.join_status === 'Pending').map(s => (
+                        <tr key={s.email} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                          <td className="p-3 font-bold text-slate-800 dark:text-slate-200">{s.full_name || s.email.split('@')[0]}</td>
+                          <td className="p-3 text-slate-500 text-sm">{s.email}</td>
+                          <td className="p-3 text-right flex justify-end gap-2">
+                            <button onClick={() => handleApproveStudent(s.email, 1)} className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-md shadow-sm transition">Duyệt</button>
+                            <button onClick={() => handleApproveStudent(s.email, 0)} className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-md shadow-sm transition">Từ chối</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Danh sách lớp chính thức */}
+              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 px-2">Học sinh chính thức</h4>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-sm border-b border-slate-200/50 dark:border-slate-700/50">
@@ -1794,7 +1833,7 @@ const TeacherDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
-                  {classStudents.map(s => (
+                  {classStudents.filter(s => s.join_status !== 'Pending').map(s => (
                     <tr key={s.email} className="hover:bg-slate-100/20 dark:bg-slate-700/20 transition-colors">
                       <td className="p-4 font-bold text-slate-900 dark:text-white">{s.full_name}</td>
                       <td className="p-4 text-slate-700 dark:text-slate-300">{s.email}</td>
@@ -1812,16 +1851,16 @@ const TeacherDashboard = () => {
                       </td>
                     </tr>
                   ))}
-                  {classStudents.length === 0 && (
-                    <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có học sinh nào trong lớp.</td></tr>
+                  {classStudents.filter(s => s.join_status !== 'Pending').length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có học sinh chính thức nào trong lớp.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
 
             {studentProfile && (
-              <div className="absolute inset-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-sm w-full">
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-sm w-full relative z-[101]">
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Hồ sơ Học sinh</h3>
                   <div className="space-y-3 mb-6 text-sm">
                     <p className="text-slate-600 dark:text-slate-400">Họ tên: <span className="text-slate-900 dark:text-white font-medium">{studentProfile.full_name}</span></p>

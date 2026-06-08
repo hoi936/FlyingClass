@@ -1174,24 +1174,33 @@ const Dashboard = () => {
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Lớp Học Của Tôi</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2 pb-2">
-        {myClasses.length > 0 ? myClasses.map((cls: any) => (
-          <div key={cls.class_id || cls.id} onClick={() => { setSelectedClass(cls); setActiveMenu('classes'); }} className="bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden shadow-lg hover:border-slate-500 transition-all cursor-pointer group hover:-translate-y-1">
-            <div className="h-32 bg-gradient-to-br from-blue-900/60 to-indigo-900/60 relative flex justify-center items-center">
+        {myClasses.length > 0 ? myClasses.map((cls: any) => {
+          const isPending = cls.join_status === 'Pending';
+          return (
+          <div key={cls.class_id || cls.id} onClick={() => { if(!isPending) { setSelectedClass(cls); setActiveMenu('classes'); } }} className={`bg-white/60 dark:bg-slate-800/60 rounded-xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden shadow-lg transition-all ${isPending ? 'opacity-80 cursor-not-allowed' : 'hover:border-slate-500 cursor-pointer group hover:-translate-y-1'}`}>
+            <div className={`h-32 relative flex justify-center items-center ${isPending ? 'bg-slate-200 dark:bg-slate-800' : 'bg-gradient-to-br from-blue-900/60 to-indigo-900/60'}`}>
               <BookOpen size={40} className="text-slate-900/20 dark:text-white/20" />
-              <div className="absolute top-3 right-3 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-2 py-1 rounded-md border border-emerald-500/20">
-                {cls.status}
-              </div>
+              {isPending && (
+                <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center">
+                  <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">Chờ giáo viên duyệt</span>
+                </div>
+              )}
+              {!isPending && (
+                <div className="absolute top-3 right-3 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-2 py-1 rounded-md border border-emerald-500/20">
+                  {cls.status}
+                </div>
+              )}
             </div>
             <div className="p-5">
               <p className="text-xs text-blue-400 mb-1 font-mono">{cls.class_code}</p>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 line-clamp-1">{cls.class_name || cls.name}</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">GV: {cls.teacher_name || 'Không rõ'}</p>
-              <button className="w-full bg-blue-500/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-slate-900 dark:text-white py-2 rounded-lg text-sm font-medium transition flex items-center justify-center">
-                Vào lớp học &rarr;
+              <button disabled={isPending} className={`w-full py-2 rounded-lg text-sm font-medium transition flex items-center justify-center ${isPending ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400' : 'bg-blue-500/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-slate-900 dark:text-white'}`}>
+                {isPending ? 'Đang chờ duyệt...' : 'Vào lớp học \u2192'}
               </button>
             </div>
           </div>
-        )) : (
+        )}) : (
           <div className="col-span-3 text-center py-20 bg-white/20 dark:bg-slate-800/20 rounded-xl border border-slate-200/50 dark:border-slate-700/50 border-dashed">
             <BookOpen size={48} className="mx-auto text-slate-600 mb-4" />
             <p className="text-slate-600 dark:text-slate-400">Bạn chưa tham gia lớp học nào.</p>

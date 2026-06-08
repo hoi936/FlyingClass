@@ -183,12 +183,13 @@ def get_my_classes():
             WHERE c.teacher = %s AND c.status = 'Active'
         """, (user,), as_dict=True)
     else:
-        # Học sinh lấy các lớp họ đã join
+        # Học sinh lấy các lớp họ đã join (Kể cả Pending để hiển thị trạng thái)
         classes = frappe.db.sql("""
             SELECT 
                 c.name as class_id, c.class_name, c.class_code, c.status, c.price, c.image, c.max_students,
                 (SELECT full_name FROM `tabUser` WHERE name = c.teacher) as teacher_name,
-                (SELECT count(*) FROM `tabFC Class Member` WHERE parent = c.name) as student_count
+                (SELECT count(*) FROM `tabFC Class Member` WHERE parent = c.name AND join_status = 'Approved') as student_count,
+                cs.join_status
             FROM `tabFC Class` c
             INNER JOIN `tabFC Class Member` cs ON cs.parent = c.name
             WHERE cs.student = %s AND c.status = 'Active'
@@ -306,7 +307,8 @@ def join_class(class_code):
         
     class_doc.append("students", {
         "student": user,
-        "join_date": frappe.utils.today()
+        "join_date": frappe.utils.today(),
+        "join_status": "Pending"
     })
     class_doc.save(ignore_permissions=True)
     
@@ -760,10 +762,34 @@ def get_class_students(class_id):
             "email": member.student,
             "full_name": user_doc.full_name,
             "join_date": member.join_date,
+            "join_status": getattr(member, 'join_status', 'Approved') or 'Approved',
             "is_muted": getattr(member, 'is_muted', 0),
             "total_score": float(score_map.get(member.student, 0))
         })
     return {"students": students}
+
+@frappe.whitelist()
+def approve_student(class_id, student_email, approve=1):
+    user = frappe.session.user
+    class_doc = frappe.get_doc("FC Class", class_id)
+    if class_doc.teacher != user and "FC Admin" not in frappe.get_roles(user):
+        frappe.throw(_("Bạn không có quyền thực hiện!"))
+    
+    found = False
+    for member in class_doc.students:
+        if member.student == student_email:
+            found = True
+            if int(approve) == 1:
+                member.join_status = "Approved"
+            else:
+                class_doc.remove(member)
+            break
+            
+    if not found:
+        frappe.throw(_("Không tìm thấy học sinh này trong lớp!"))
+        
+    class_doc.save(ignore_permissions=True)
+    return {"success": True, "message": "Đã duyệt thành công!" if int(approve) == 1 else "Đã từ chối thành công!"}
 
 @frappe.whitelist()
 def add_student(class_id, email):
@@ -1659,7 +1685,8 @@ def join_class_by_code(class_code):
     class_doc.append("students", {
         "student": user,
         "student_name": frappe.db.get_value("User", user, "full_name") or user,
-        "status": "Active"
+        "status": "Active",
+        "join_status": "Pending"
     })
     class_doc.save(ignore_permissions=True)
     

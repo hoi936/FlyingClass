@@ -376,6 +376,15 @@ export const teacherService = {
     return res.data.message;
   },
 
+  approveStudent: async (classId: string, studentEmail: string, approve: number) => {
+    const res = await api.post('/api/method/flying_class.flying_class.api.approve_student', {
+      class_id: classId,
+      student_email: studentEmail,
+      approve: approve
+    });
+    return res.data.message;
+  },
+
   getSubscriptionStatus: async () => {
     const res = await api.get('/api/method/flying_class.flying_class.api.get_subscription_status');
     return res.data.message || res.data;
