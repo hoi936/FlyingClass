@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Users, Award, PlayCircle } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/api';
@@ -144,25 +144,29 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px]"></div>
+    <div className="h-screen bg-slate-50 dark:bg-slate-900 flex font-sans relative overflow-hidden">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-950"></div>
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/30 dark:bg-blue-600/20 blur-[120px] animate-pulse"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-400/30 dark:bg-cyan-600/20 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-purple-400/20 dark:bg-purple-600/20 blur-[100px] animate-pulse" style={{ animationDelay: '4s' }}></div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center font-bold text-slate-900 dark:text-white shadow-lg shadow-blue-500/30 text-xl">FC</div>
-        </div>
-        <h2 className="mt-2 text-center text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          FlyingClass
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600 dark:text-slate-400">
-          Nền tảng học tập trực tuyến thông minh
-        </p>
-      </div>
+      <div className="flex-1 flex flex-col justify-center py-6 px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24 z-10 w-full lg:w-1/2">
+        <div className="mx-auto w-full max-w-sm lg:w-[380px]">
+          <div className="flex flex-col items-center mb-6">
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+              <img src="/logo.png" alt="FlyingClass Logo" className="relative w-20 h-20 rounded-2xl shadow-xl object-cover mix-blend-multiply dark:mix-blend-normal" />
+            </div>
+            <h2 className="mt-4 text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 tracking-tight">
+              FlyingClass
+            </h2>
+            <p className="mt-2 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
+              Nền tảng học tập trực tuyến thông minh
+            </p>
+          </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl py-8 px-4 shadow-2xl shadow-black/50 sm:rounded-2xl sm:px-10 border border-slate-200/50 dark:border-slate-700/50">
+          <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-2xl py-6 px-6 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] rounded-3xl border border-white/20 dark:border-slate-700/50">
           
           {showForgotPwd ? (
             <div className="animate-fade-in">
@@ -218,7 +222,7 @@ const Login = () => {
             </div>
           ) : (
             <>
-          <form className="space-y-6" onSubmit={handleLogin}>
+          <form className="space-y-4" onSubmit={handleLogin}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email hoặc Tên đăng nhập
@@ -283,7 +287,7 @@ const Login = () => {
             </div>
           </form>
 
-          <div className="mt-6">
+          <div className="mt-4">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
@@ -293,7 +297,7 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-4">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
@@ -309,7 +313,7 @@ const Login = () => {
               </button>
             </div>
           </div>
-          <div className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
+          <div className="mt-4 text-center text-sm text-slate-600 dark:text-slate-400">
             Chưa có tài khoản?{' '}
             <Link to="/register" className="font-medium text-blue-400 hover:text-blue-300 transition-colors">
               Đăng ký ngay
@@ -317,6 +321,51 @@ const Login = () => {
           </div>
           </>
           )}
+        </div>
+      </div>
+      </div>
+
+      {/* Right side banner for large screens */}
+      <div className="hidden lg:block relative w-0 flex-1 z-10">
+        <div className="absolute inset-0 h-full w-full bg-cover bg-center bg-no-repeat overflow-hidden" style={{ backgroundImage: "url('/banner_bg.png')" }}>
+          {/* Overlay to ensure text readability */}
+          <div className="absolute inset-0 bg-blue-900/40 mix-blend-multiply"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/80 via-indigo-900/20 to-transparent"></div>
+          
+          <div className="flex flex-col justify-center h-full px-20 relative z-20">
+            <h1 className="text-5xl font-extrabold text-white mb-6 leading-tight drop-shadow-lg">
+              Khám phá chân trời <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-cyan-200">
+                tri thức mới
+              </span>
+            </h1>
+            <p className="text-xl text-blue-100 max-w-xl leading-relaxed drop-shadow-md">
+              Trải nghiệm môi trường học tập tương tác, hiện đại và hiệu quả. Nơi mọi bài giảng đều là một chuyến bay khám phá.
+            </p>
+            
+            <div className="mt-12 flex flex-col gap-4">
+              <div className="flex items-center space-x-4 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 shadow-lg w-max hover:bg-white/20 transition-colors">
+                <div className="bg-blue-500/30 p-2 rounded-xl">
+                  <Users className="text-blue-100 w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-white font-bold text-lg">10k+ Học viên</div>
+                  <div className="text-blue-200 text-sm">Cộng đồng học tập sôi nổi</div>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 shadow-lg hover:bg-white/20 transition-colors">
+                  <PlayCircle className="text-cyan-300 w-6 h-6" />
+                  <span className="text-white font-medium">500+ Bài giảng</span>
+                </div>
+                <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 shadow-lg hover:bg-white/20 transition-colors">
+                  <Award className="text-purple-300 w-6 h-6" />
+                  <span className="text-white font-medium">Cấp chứng chỉ</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

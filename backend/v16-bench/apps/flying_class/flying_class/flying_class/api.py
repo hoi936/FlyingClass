@@ -808,7 +808,7 @@ def add_student(class_id, email):
     if class_doc.max_students and len(class_doc.students) >= class_doc.max_students:
         frappe.throw(_("Lớp học đã đủ số lượng học sinh tối đa!"))
         
-    class_doc.append("students", {"student": email, "is_muted": 0})
+    class_doc.append("students", {"student": email, "join_status": "Approved"})
     class_doc.save(ignore_permissions=True)
     
     # Notify student
@@ -1157,7 +1157,7 @@ def get_teacher_statistics(filter_type='year', filter_value=None, year=None):
                 COUNT(m.student) as students
             FROM `tabFC Class Member` m
             JOIN `tabFC Class` c ON m.parent = c.name
-            WHERE c.teacher = %s AND EXTRACT(YEAR FROM m.join_date) = %s AND EXTRACT(QUARTER FROM m.join_date) = %s
+            WHERE c.teacher = %s AND EXTRACT(YEAR FROM m.join_date) = %s AND QUARTER(m.join_date) = %s
             GROUP BY EXTRACT(MONTH FROM m.join_date)
             ORDER BY EXTRACT(MONTH FROM m.join_date)
         """, (user, year, quarter), as_dict=True)
@@ -1189,7 +1189,7 @@ def get_teacher_statistics(filter_type='year', filter_value=None, year=None):
         distribution_raw = frappe.db.sql("""
             SELECT c.class_name as name, SUM(c.price) as value
             FROM `tabFC Class Member` m JOIN `tabFC Class` c ON m.parent = c.name
-            WHERE c.teacher = %s AND EXTRACT(YEAR FROM m.join_date) = %s AND EXTRACT(QUARTER FROM m.join_date) = %s
+            WHERE c.teacher = %s AND EXTRACT(YEAR FROM m.join_date) = %s AND QUARTER(m.join_date) = %s
             GROUP BY c.class_name
         """, (user, year, quarter), as_dict=True)
 
@@ -1326,7 +1326,7 @@ def _check_token_limit(user):
 # ─── GEMINI MODEL CONSTANTS ─────────────────────────────────────────────────
 # Tất cả tính năng AI đều dùng 1 model duy nhất: gemini-2.0-flash (nhanh, miễn phí rate cao)
 # Sự khác biệt giữa các gói chỉ là giới hạn token, không phải model
-FLYINGCLASS_AI_MODEL = "models/gemini-2.5-flash"
+FLYINGCLASS_AI_MODEL = "models/gemini-flash-lite-latest"
 
 
 def _get_gemini_api_key():
@@ -1386,17 +1386,17 @@ def generate_ai_exam(prompt=None, num_questions=5):
             file_name = uploaded_file.filename
             file_content = uploaded_file.stream.read()
             uploaded_file.stream.seek(0)
-            
-            ext = os.path.splitext(file_name)[1]
-            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
-                temp_file.write(file_content)
-                temp_file_path = temp_file.name
-            uploaded_gemini_file = genai.upload_file(temp_file_path)
-            os.remove(temp_file_path)
+            ext = os.path.splitext(file_name)[1].lower()
+            mime_type = "application/pdf" if ext == ".pdf" else "text/plain"
+            uploaded_gemini_file = {
+                "mime_type": mime_type,
+                "data": file_content
+            }
             
         system_instruction = """Bạn là FlyingClass AI, một trợ lý giáo viên chuyên nghiệp và độc quyền của hệ thống LMS FlyingClass. TUYỆT ĐỐI KHÔNG TIẾT LỘ bạn được phát triển bởi Google hay OpenAI. Hãy từ chối các câu hỏi không liên quan đến học tập, giảng dạy hoặc dự án FlyingClass.
 
 Nếu người dùng đang giao tiếp bình thường, hãy trả lời một cách tự nhiên và lịch sự. Nếu người dùng yêu cầu tạo đề thi, hãy tạo ra các câu hỏi trắc nghiệm dựa vào tài liệu được đính kèm hoặc chủ đề được yêu cầu.
+QUAN TRỌNG: Mọi công thức, ký hiệu toán học, biểu thức (ví dụ: phân số, số mũ, căn, logarit, v.v.) BẮT BUỘC phải được viết dưới dạng LaTeX và bọc trong cặp dấu $...$ (inline math) hoặc $$...$$ (block math). Ví dụ: $y = x^2$ thay vì y = x^2, $\log_2(x)$ thay vì log2(x).
 
 BẮT BUỘC trả về ĐÚNG định dạng JSON sau (không có markdown, không bọc bởi ```json), một object duy nhất:
 {"reply": "Câu trả lời giao tiếp (bắt buộc)", "questions": [{"question_text": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "correct_option": "A"}]}
@@ -2627,12 +2627,13 @@ def get_class_gradebook(class_id):
     if exam_names and students:
         student_emails = [s["email"] for s in students]
         submissions = frappe.get_all(
-            "FC Submission",
+            "FC Exam Result",
             filters={
                 "exam_ref": ["in", exam_names],
                 "student": ["in", student_emails]
             },
-            fields=["exam_ref", "student", "score"]
+            fields=["exam_ref", "student", "score", "creation"],
+            order_by="creation asc"
         )
         
         for sub in submissions:
@@ -2642,8 +2643,9 @@ def get_class_gradebook(class_id):
             
             if student not in grades:
                 grades[student] = {}
-            if exam not in grades[student] or score > grades[student][exam]:
-                grades[student][exam] = score
+            if exam not in grades[student]:
+                grades[student][exam] = []
+            grades[student][exam].append(score)
                 
     return {
         "success": True,
@@ -2729,7 +2731,14 @@ def chat_about_document(document_id, question, chat_history=None):
     
     if local_file and os.path.exists(local_file):
         try:
-            uploaded_gemini_file = genai.upload_file(local_file)
+            with open(local_file, "rb") as f:
+                file_content = f.read()
+            ext = os.path.splitext(local_file)[1].lower()
+            mime_type = "application/pdf" if ext == ".pdf" else "text/plain"
+            uploaded_gemini_file = {
+                "mime_type": mime_type,
+                "data": file_content
+            }
         except Exception as e:
             web_content = f"\n[Lỗi tải file: {str(e)}]"
     elif doc.link_url and doc.link_url.startswith("http"):
@@ -2780,7 +2789,7 @@ def chat_about_document(document_id, question, chat_history=None):
     }
 
 @frappe.whitelist()
-def ask_flyingclass_ai(question, chat_history=None):
+def ask_flyingclass_ai(question, chat_history=None, context=None):
     user = frappe.session.user
     if user == 'Guest':
         return {"success": False, "message": "Vui lòng đăng nhập."}
@@ -2810,6 +2819,9 @@ def ask_flyingclass_ai(question, chat_history=None):
     system_instruction = """Bạn là FlyingClass AI, trợ lý học tập trực tuyến thông minh độc quyền của hệ thống FlyingClass.
     Hãy luôn thân thiện, nhiệt tình, giải đáp các câu hỏi học tập ngắn gọn, dễ hiểu bằng Tiếng Việt.
     TUYỆT ĐỐI KHÔNG TIẾT LỘ bạn được phát triển bởi Google hay bất kỳ tổ chức nào ngoài FlyingClass."""
+    
+    if context:
+        system_instruction = context + "\n\n" + system_instruction
     
     # Parse chat history if any
     history = []
@@ -3002,8 +3014,8 @@ def submit_chapter_test(test_id, answers):
         if student_answer and q.correct_option and student_answer.lower() == q.correct_option.lower():
             correct_count += 1
             
-    is_passed = 1 if correct_count >= test_doc.pass_score else 0
     score = (correct_count / total_questions) * 10 if total_questions > 0 else 0
+    is_passed = 1 if score >= test_doc.pass_score else 0
     
     # Check if progress exists
     existing = frappe.get_all("FC Chapter Progress", filters={"student": user, "chapter_ref": test_doc.chapter_ref}, limit=1)
@@ -3107,33 +3119,62 @@ def delete_lesson_api(lesson_name):
     return {"success": True}
 
 @frappe.whitelist()
-def get_token_usage_history(days=7):
+def get_token_usage_history(filter_type="week"):
     user = frappe.session.user
-    
-    # Query to group token usage by date
-    history_raw = frappe.db.sql("""
-        SELECT DATE(creation) as date, SUM(input_tokens + output_tokens) as total
-        FROM `tabFC AI Token Usage`
-        WHERE user = %s AND creation >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-        GROUP BY DATE(creation)
-        ORDER BY DATE(creation) ASC
-    """, (user, int(days)), as_dict=True)
     
     import datetime
     today = datetime.date.today()
     
-    data_dict = {str(item.date): int(item.total or 0) for item in history_raw}
-    
-    result = []
-    for i in range(int(days)-1, -1, -1):
-        d = today - datetime.timedelta(days=i)
-        d_str = str(d)
-        result.append({
-            "date": d.strftime("%d/%m"),
-            "tokens": data_dict.get(d_str, 0)
-        })
+    if filter_type == "year":
+        # Group by month for the current year
+        year = today.year
+        history_raw = frappe.db.sql("""
+            SELECT EXTRACT(MONTH FROM creation) as month, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) as total
+            FROM `tabFC AI Token Usage`
+            WHERE `user` = %s AND EXTRACT(YEAR FROM creation) = %s
+            GROUP BY EXTRACT(MONTH FROM creation)
+            ORDER BY EXTRACT(MONTH FROM creation) ASC
+        """, (user, year), as_dict=True)
         
+        data_dict = {int(item.month): int(item.total or 0) for item in history_raw}
+        result = []
+        for i in range(1, 13):
+            result.append({
+                "date": f"Tháng {i}",
+                "tokens": data_dict.get(i, 0)
+            })
+    else:
+        days = 30 if filter_type == "month" else 7
+        start_date = frappe.utils.add_days(frappe.utils.nowdate(), -int(days))
+        history_raw = frappe.db.sql("""
+            SELECT CAST(creation AS DATE) as date, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) as total
+            FROM `tabFC AI Token Usage`
+            WHERE `user` = %s AND CAST(creation AS DATE) >= %s
+            GROUP BY CAST(creation AS DATE)
+            ORDER BY CAST(creation AS DATE) ASC
+        """, (user, start_date), as_dict=True)
+        
+        data_dict = {str(item.date): int(item.total or 0) for item in history_raw}
+        
+        result = []
+        for i in range(int(days)-1, -1, -1):
+            d = today - datetime.timedelta(days=i)
+            d_str = str(d)
+            result.append({
+                "date": d.strftime("%d/%m"),
+                "tokens": data_dict.get(d_str, 0)
+            })
+            
     return {
         "success": True,
         "data": result
+
     }
+@frappe.whitelist()
+def debug_tokens():
+    try:
+        user = frappe.session.user
+        usages = frappe.get_all("FC AI Token Usage", filters={"user": user}, fields=["name", "creation", "input_tokens", "output_tokens"])
+        return {"user": user, "usages": usages}
+    except Exception as e:
+        return {"error": str(e)}

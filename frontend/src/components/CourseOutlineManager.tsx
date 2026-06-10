@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { classService, teacherService } from '../services/api';
 import { BookOpen, Folder, Plus, Trash2, Edit, CheckCircle, Lock, Unlock, FileText, Settings, Key, FileUp, Sparkles, X } from 'lucide-react';
 import { LessonDocumentManager } from './LessonDocumentManager';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface CourseOutlineManagerProps {
   classId: string;
@@ -90,8 +94,10 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
       setTestForm({ test_name: '', title: '', pass_score: 5, questions: [] });
       setShowAIGenerator(false);
       fetchOutline();
-    } catch (err) {
-      alert('Lỗi lưu bài kiểm tra');
+    } catch (err: any) {
+      console.error(err);
+      const serverMsg = err?.response?.data?.exc || err?.response?.data?._server_messages || err?.response?.data?.message || err?.message || 'Unknown error';
+      alert('Lỗi lưu bài kiểm tra: ' + JSON.stringify(serverMsg));
     }
   };
 
@@ -227,8 +233,11 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
                     <Plus size={14} className="mr-1" /> Thêm Bài
                   </button>
                   {!chap.test && (
-                    <button onClick={() => setShowTestModal(chap.id)} className="bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center">
-                      <Key size={14} className="mr-1" /> Tạo Bài Test Mở Khóa
+                    <button onClick={() => {
+                      setTestForm({ test_name: '', title: '', pass_score: 5, questions: [] });
+                      setShowTestModal(chap.id);
+                    }} className="bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center">
+                      <Plus size={16} className="mr-1.5" /> Tạo Bài Kiểm Tra Mở Khóa
                     </button>
                   )}
                   <button onClick={() => handleDeleteChapter(chap.id)} className="p-1.5 text-slate-400 hover:text-red-500 transition">
@@ -268,7 +277,8 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setTestForm({
                             test_name: chap.test.name,
                             title: chap.test.title,
@@ -348,8 +358,8 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
                   <input type="text" placeholder="VD: Test cuối chương 1" value={testForm.title} onChange={e => setTestForm({...testForm, title: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Điểm qua môn (số câu đúng)</label>
-                  <input type="number" min="1" value={testForm.pass_score} onChange={e => setTestForm({...testForm, pass_score: parseInt(e.target.value) || 1})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Điểm qua môn (thang điểm 10)</label>
+                  <input type="number" min="0" max="10" step="1" value={testForm.pass_score} onChange={e => setTestForm({...testForm, pass_score: parseInt(e.target.value) || 5})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500" />
                 </div>
               </div>
 
@@ -408,7 +418,12 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
                         </button>
                       </div>
                       <div className="mb-3 pr-8">
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Câu hỏi {idx + 1}</label>
+                        <div className="flex justify-between items-end mb-1">
+                          <label className="block text-xs font-bold text-slate-500">Câu hỏi {idx + 1}</label>
+                          {q.question_text?.includes('$') && (
+                            <span className="text-[10px] text-emerald-500 font-semibold bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">Có định dạng Toán học</span>
+                          )}
+                        </div>
                         <textarea 
                           value={q.question_text} 
                           onChange={(e) => updateQuestion(idx, 'question_text', e.target.value)}
@@ -416,27 +431,52 @@ export const CourseOutlineManager: React.FC<CourseOutlineManagerProps> = ({ clas
                           className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 dark:text-white"
                           rows={2}
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {['A', 'B', 'C', 'D'].map(opt => (
-                          <div key={opt} className="flex items-center gap-2">
-                            <input 
-                              type="radio" 
-                              name={`correct_${idx}`} 
-                              checked={q.correct_option === opt}
-                              onChange={() => updateQuestion(idx, 'correct_option', opt)}
-                              className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
-                            />
-                            <span className="font-bold text-sm text-slate-500">{opt}.</span>
-                            <input 
-                              type="text" 
-                              value={q[`option_${opt.toLowerCase()}` as keyof typeof q]} 
-                              onChange={(e) => updateQuestion(idx, `option_${opt.toLowerCase()}`, e.target.value)}
-                              placeholder={`Đáp án ${opt}`}
-                              className={`flex-1 bg-slate-50 dark:bg-slate-900 border rounded-lg p-2 text-sm ${q.correct_option === opt ? 'border-emerald-500 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10' : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'}`}
-                            />
+                        {q.question_text?.includes('$') && (
+                          <div className="mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 shadow-inner">
+                            <span className="text-xs font-bold text-slate-400 block mb-1">Xem trước hiển thị:</span>
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                {q.question_text}
+                              </ReactMarkdown>
+                            </div>
                           </div>
-                        ))}
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        {['A', 'B', 'C', 'D'].map(opt => {
+                          const optValue = q[`option_${opt.toLowerCase()}` as keyof typeof q] as string;
+                          const hasMath = optValue?.includes('$');
+                          return (
+                            <div key={opt} className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="radio" 
+                                  name={`correct_${idx}`} 
+                                  checked={q.correct_option === opt}
+                                  onChange={() => updateQuestion(idx, 'correct_option', opt)}
+                                  className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 mt-0.5"
+                                />
+                                <span className="font-bold text-sm text-slate-500">{opt}.</span>
+                                <input 
+                                  type="text" 
+                                  value={optValue} 
+                                  onChange={(e) => updateQuestion(idx, `option_${opt.toLowerCase()}`, e.target.value)}
+                                  placeholder={`Đáp án ${opt}`}
+                                  className={`flex-1 bg-slate-50 dark:bg-slate-900 border rounded-lg p-2 text-sm ${q.correct_option === opt ? 'border-emerald-500 dark:border-emerald-500/50 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10' : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'}`}
+                                />
+                              </div>
+                              {hasMath && (
+                                <div className="ml-8 p-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-md text-sm text-slate-700 dark:text-slate-300">
+                                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                      {optValue}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

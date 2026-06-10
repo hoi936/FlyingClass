@@ -631,9 +631,15 @@ const AdminDashboard = () => {
           <h3 className="font-bold text-slate-900 dark:text-white mb-4">Doanh Thu Theo Loại Gói AI</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={financeStats?.revenue_by_package || []}>
+              <BarChart data={(financeStats?.revenue_by_package || []).reduce((acc: any[], curr: any) => {
+                const id = curr.packageId?.startsWith('Custom_') ? 'Token Lẻ' : curr.packageId;
+                const existing = acc.find((x: any) => x.packageId === id);
+                if (existing) existing.revenue += curr.revenue;
+                else acc.push({ ...curr, packageId: id });
+                return acc;
+              }, [])}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="packageId" stroke="#94a3b8" tickFormatter={(v) => v === 'Normal' || v === 'Monthly' ? 'Thường' : v === 'Pro_Monthly' ? 'Pro' : v.startsWith('Custom_') ? 'Token Lẻ' : v} />
+                <XAxis dataKey="packageId" stroke="#94a3b8" tickFormatter={(v) => v === 'Normal' || v === 'Monthly' ? 'Thường' : v === 'Pro_Monthly' ? 'Pro' : v} />
                 <YAxis stroke="#94a3b8" />
                 <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px' }} />
                 <Bar dataKey="revenue" name="Doanh thu" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={80} />
@@ -889,7 +895,7 @@ const AdminDashboard = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-500 to-orange-500 flex items-center justify-center font-bold text-slate-900 dark:text-white shadow-lg shadow-rose-500/20">FC</div>
+              <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
               <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-orange-400">FlyingClass</span>
               <span className="text-xs text-rose-400 font-medium bg-rose-500/10 px-2 py-1 rounded-full border border-rose-500/20 ml-2 shadow-sm">Admin Portal</span>
             </div>
@@ -1007,9 +1013,13 @@ const AdminDashboard = () => {
                 <span>1 Tháng</span>
                 <span className="font-bold">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Monthly')?.revenue?.toLocaleString() || 0} đ</span>
               </div>
-              <div className="flex justify-between text-slate-900 dark:text-white text-sm">
+              <div className="flex justify-between text-slate-900 dark:text-white text-sm mb-2">
                 <span>Pro_Monthly</span>
                 <span className="font-bold">{financeStats?.revenue_by_package?.find((p:any) => p.packageId === 'Pro_Monthly')?.revenue?.toLocaleString() || 0} đ</span>
+              </div>
+              <div className="flex justify-between text-slate-900 dark:text-white text-sm">
+                <span>Token Lẻ</span>
+                <span className="font-bold">{financeStats?.revenue_by_package?.filter((p:any) => p.packageId?.startsWith('Custom_')).reduce((s:number, p:any) => s + p.revenue, 0).toLocaleString() || 0} đ</span>
               </div>
             </div>
           </div>

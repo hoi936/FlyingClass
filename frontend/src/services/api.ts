@@ -507,8 +507,8 @@ export const teacherService = {
     return res.data.message;
   },
 
-  getTokenUsageHistory: async (days: number = 7) => {
-    const res = await api.get('/api/method/flying_class.flying_class.api.get_token_usage_history', { params: { days } });
+  getTokenUsageHistory: async (filter_type: string = 'week') => {
+    const res = await api.get('/api/method/flying_class.flying_class.api.get_token_usage_history', { params: { filter_type } });
     return res.data.message;
   },
 
@@ -619,10 +619,11 @@ export const studentService = {
     return res.data.message;
   },
 
-  askFlyingClassAI: async (question: string, chat_history?: any[]) => {
+  askFlyingClassAI: async (question: string, chat_history?: any[], context?: string) => {
     const res = await api.post('/api/method/flying_class.flying_class.api.ask_flyingclass_ai', {
       question,
-      chat_history: chat_history ? JSON.stringify(chat_history) : undefined
+      chat_history: chat_history ? JSON.stringify(chat_history) : undefined,
+      context
     });
     return res.data.message;
   },

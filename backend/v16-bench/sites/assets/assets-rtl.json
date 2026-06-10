@@ -1,10 +1,10 @@
 {
-    "rtl_desk.bundle.css": "/assets/frappe/dist/css-rtl/desk.bundle.6VWNJAQH.css",
-    "rtl_email.bundle.css": "/assets/frappe/dist/css-rtl/email.bundle.ZZQFFDDL.css",
-    "rtl_login.bundle.css": "/assets/frappe/dist/css-rtl/login.bundle.Q665RDDR.css",
-    "rtl_print.bundle.css": "/assets/frappe/dist/css-rtl/print.bundle.NXC7W57T.css",
-    "rtl_print_format.bundle.css": "/assets/frappe/dist/css-rtl/print_format.bundle.E4C3G3VC.css",
-    "rtl_report.bundle.css": "/assets/frappe/dist/css-rtl/report.bundle.OG7HKCZF.css",
-    "rtl_web_form.bundle.css": "/assets/frappe/dist/css-rtl/web_form.bundle.M2VGQWL2.css",
-    "rtl_website.bundle.css": "/assets/frappe/dist/css-rtl/website.bundle.PZLVYTYC.css"
+    "rtl_desk.bundle.css": "/assets/frappe/dist/css-rtl/desk.bundle.WHFUAQJF.css",
+    "rtl_email.bundle.css": "/assets/frappe/dist/css-rtl/email.bundle.ODMMGHIE.css",
+    "rtl_login.bundle.css": "/assets/frappe/dist/css-rtl/login.bundle.6TLULPQ4.css",
+    "rtl_print.bundle.css": "/assets/frappe/dist/css-rtl/print.bundle.CXAXOGDZ.css",
+    "rtl_print_format.bundle.css": "/assets/frappe/dist/css-rtl/print_format.bundle.SXAOZ2SJ.css",
+    "rtl_report.bundle.css": "/assets/frappe/dist/css-rtl/report.bundle.DRZQQF3O.css",
+    "rtl_web_form.bundle.css": "/assets/frappe/dist/css-rtl/web_form.bundle.IUVT2HVR.css",
+    "rtl_website.bundle.css": "/assets/frappe/dist/css-rtl/website.bundle.PYIDCCUI.css"
 }

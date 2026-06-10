@@ -4,6 +4,10 @@ import { classService } from '../services/api';
 import { BookOpen, Folder, Lock, Unlock, CheckCircle, PlayCircle, FileText, ChevronDown, ChevronRight, Check, Link as LinkIcon, FileUp } from 'lucide-react';
 import { LessonDocumentManager } from './LessonDocumentManager';
 import { useAuthStore } from '../store/useAuthStore';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface StudentCourseOutlineProps {
   classId: string;
@@ -359,10 +363,14 @@ export const StudentCourseOutline: React.FC<StudentCourseOutlineProps> = ({ clas
                 takingTest.questions && takingTest.questions.length > 0 ? (
                   takingTest.questions.map((q: any, idx: number) => (
                     <div key={q.name} className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative z-10 max-w-4xl mx-auto w-full">
-                      <p className="font-medium text-slate-900 dark:text-white mb-4 text-lg">
-                        <span className="text-blue-400 mr-2 font-bold">Câu {idx + 1}:</span>
-                        <span dangerouslySetInnerHTML={{__html: q.question_text}} />
-                      </p>
+                      <div className="font-medium text-slate-900 dark:text-white mb-4 text-lg flex items-start">
+                        <span className="text-blue-400 mr-2 font-bold whitespace-nowrap">Câu {idx + 1}:</span>
+                        <div className="inline-block prose prose-sm dark:prose-invert max-w-none prose-p:my-0">
+                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                            {q.question_text || ''}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
                       <div className="space-y-3 pl-0 md:pl-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {['a', 'b', 'c', 'd'].map(opt => {
                           const optText = q[`option_${opt}`];
@@ -381,7 +389,11 @@ export const StudentCourseOutline: React.FC<StudentCourseOutlineProps> = ({ clas
                               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 flex-shrink-0 ${isSelected ? 'border-blue-500 bg-blue-500 text-slate-900 dark:text-white' : 'border-slate-500 text-transparent'}`}>
                                 <Check size={14} className={isSelected ? "block" : "hidden"} />
                               </div>
-                              <span dangerouslySetInnerHTML={{__html: optText}} className="text-slate-700 dark:text-slate-300" />
+                              <div className="text-slate-700 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none prose-p:my-0">
+                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                  {optText || ''}
+                                </ReactMarkdown>
+                              </div>
                             </label>
                           );
                         })}

@@ -746,7 +746,8 @@ const Dashboard = () => {
     clearInterval(aiMockTimerRef.current);
     let correctCount = 0;
     aiMockQuestions.forEach((q, idx) => {
-      if (aiMockAnswers[idx] === q.correct_answer) {
+      const correctAns = q.correct_answer || q.correct_option;
+      if (aiMockAnswers[idx] === correctAns) {
         correctCount++;
       }
     });
@@ -920,7 +921,7 @@ const Dashboard = () => {
           <div className="space-y-6 flex-1 overflow-y-auto max-h-[50vh] pr-2 custom-scrollbar">
             {aiMockQuestions.map((q, idx) => {
               const studentAns = aiMockAnswers[idx];
-              const correctAns = q.correct_answer;
+              const correctAns = q.correct_answer || q.correct_option;
               const isCorrect = studentAns === correctAns;
 
               return (
@@ -2035,7 +2036,7 @@ const Dashboard = () => {
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center font-bold text-slate-900 dark:text-white shadow-lg shadow-blue-500/20">FC</div>
+              <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
               <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">FlyingClass</span>
               <span className="text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20 ml-2">Student</span>
             </div>

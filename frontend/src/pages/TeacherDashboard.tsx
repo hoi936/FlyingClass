@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+
 import { useAuthStore } from '../store/useAuthStore';
-import { teacherService, classService } from '../services/api';
+import { teacherService, classService, studentService } from '../services/api';
 import { useSessionState } from '../hooks/useSessionState';
 import { 
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, AreaChart, Area
@@ -120,6 +120,7 @@ const TeacherDashboard = () => {
   const [showAIPricing, setShowAIPricing] = useState(false);
   const [aiSubscriptionStatus, setAiSubscriptionStatus] = useState<any>(null);
   const [tokenHistory, setTokenHistory] = useState<any[]>([]);
+  const [tokenFilterType, setTokenFilterType] = useState('week');
   // MOCK DATA
   const [dashboardStats, setDashboardStats] = useState({
     totalClasses: 0,
@@ -232,7 +233,7 @@ const TeacherDashboard = () => {
     } else if (activeMenu === 'ai_management') {
       fetchTokenHistory();
     }
-  }, [activeMenu, statFilterType, statFilterYear, statFilterValue]);
+  }, [activeMenu, statFilterType, statFilterYear, statFilterValue, tokenFilterType]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -257,7 +258,7 @@ const TeacherDashboard = () => {
 
   const fetchTokenHistory = async () => {
     try {
-      const res = await teacherService.getTokenUsageHistory(7);
+      const res = await teacherService.getTokenUsageHistory(tokenFilterType);
       if (res && res.success) {
         setTokenHistory(res.data);
       }
@@ -493,11 +494,11 @@ const TeacherDashboard = () => {
           image: c.image || ['bg-gradient-to-br from-blue-500 to-cyan-500', 'bg-gradient-to-br from-purple-500 to-pink-500', 'bg-gradient-to-br from-emerald-500 to-teal-500', 'bg-gradient-to-br from-orange-500 to-red-500'][i % 4],
           imageIsUrl: !!c.image
         }));
-        setClasses(formatted.length > 0 ? formatted : mockClasses);
+        setClasses(formatted);
       }
     } catch(err) {
       console.error("Failed to fetch classes", err);
-      setClasses(mockClasses);
+      setClasses([]);
     }
   };
 
@@ -516,28 +517,36 @@ const TeacherDashboard = () => {
 
   const handleExportCSV = () => {
     if (!gradebookData) return;
-    const headers = ['Học sinh', 'Email', ...(gradebookData.exams || []).map((e: any) => e.title)];
-    const rows = (gradebookData.students || []).map((s: any) => {
-      const studentGrades = (gradebookData.grades || {})[s.email] || {};
-      return [
-        s.full_name,
-        s.email,
-        ...(gradebookData.exams || []).map((e: any) => {
-          const score = studentGrades[e.name];
-          return score !== undefined ? score : '-';
-        })
-      ];
-    });
     
-    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.map((val: any) => `"${val}"`).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Bang_Diem_${selectedClass.name}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headerOrder = ["Học sinh", "Email", ...(gradebookData.exams || []).map((e: any) => e.title)];
+
+    const dataToExport = (gradebookData.students || []).map((s: any) => {
+      const studentGrades = (gradebookData.grades || {})[s.email] || {};
+      const rowData: any = {
+        "Học sinh": s.full_name,
+        "Email": s.email
+      };
+      
+      (gradebookData.exams || []).forEach((e: any) => {
+        const score = studentGrades[e.name];
+        rowData[e.title] = score !== undefined ? (Array.isArray(score) ? score.join(" | ") : score) : '-';
+      });
+      
+      return rowData;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headerOrder });
+    
+    const wscols = [
+      { wch: 25 }, 
+      { wch: 35 }, 
+      ...(gradebookData.exams || []).map(() => ({ wch: 20 }))
+    ];
+    worksheet['!cols'] = wscols;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "BangDiem");
+    XLSX.writeFile(workbook, `Bang_Diem_${selectedClass?.name || 'LopHoc'}.xlsx`);
   };
 
   // Polling for Chat
@@ -653,8 +662,18 @@ const TeacherDashboard = () => {
       setNewStudentEmail('');
       setShowAddStudent(false);
       fetchClassStudents();
+      alert('Thêm học sinh thành công!');
     } catch(err: any) {
-      alert(err.response?.data?.message || err.message || 'Error adding student');
+      let msg = err.response?.data?.message || err.message || 'Lỗi khi thêm học sinh';
+      if (err.response?.data?._server_messages) {
+        try {
+          const msgs = JSON.parse(err.response.data._server_messages);
+          msg = JSON.parse(msgs[0]).message;
+        } catch(e) {}
+      } else if (err.response?.data?.exc) {
+        msg = "Có lỗi xảy ra (Server Error)";
+      }
+      alert(msg);
     }
   };
 
@@ -663,7 +682,14 @@ const TeacherDashboard = () => {
       await teacherService.approveStudent(selectedClass.id, email, approve);
       fetchClassStudents();
     } catch(err: any) {
-      alert(err.response?.data?.message || err.message || 'Error');
+      let msg = err.response?.data?.message || err.message || 'Lỗi';
+      if (err.response?.data?._server_messages) {
+        try {
+          const msgs = JSON.parse(err.response.data._server_messages);
+          msg = JSON.parse(msgs[0]).message;
+        } catch(e) {}
+      }
+      alert(msg);
     }
   };
 
@@ -673,7 +699,14 @@ const TeacherDashboard = () => {
         await classService.removeStudent(selectedClass.id, email);
         fetchClassStudents();
       } catch(err: any) {
-        alert(err.response?.data?.message || err.message || 'Error');
+        let msg = err.response?.data?.message || err.message || 'Lỗi';
+        if (err.response?.data?._server_messages) {
+          try {
+            const msgs = JSON.parse(err.response.data._server_messages);
+            msg = JSON.parse(msgs[0]).message;
+          } catch(e) {}
+        }
+        alert(msg);
       }
     }
   };
@@ -808,26 +841,23 @@ const TeacherDashboard = () => {
     setIsAILoading(true);
 
     try {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE");
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-flash-latest",
-        systemInstruction: `Bạn là trợ lý AI chuyên môn cao của lớp học "${selectedClass.name}". Nhiệm vụ của bạn là hỗ trợ giáo viên giải đáp kiến thức, soạn đề kiểm tra, tóm tắt bài giảng. Hãy trả lời thân thiện, ngắn gọn và tập trung vào chuyên môn của lớp ${selectedClass.name}.`
-      });
-
       const history = aiMessages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }],
+        role: msg.role === 'model' ? 'assistant' : 'user',
+        text: msg.text
       }));
-
-      const chat = model.startChat({ history });
-      const result = await chat.sendMessage(userMessage);
-      const response = await result.response;
-      const text = response.text();
-
-      setAiMessages(prev => [...prev, { role: 'model', text }]);
+      
+      const context = `Bạn là trợ lý AI chuyên môn cao của lớp học "${selectedClass.name}". Nhiệm vụ của bạn là hỗ trợ giáo viên giải đáp kiến thức, soạn đề kiểm tra, tóm tắt bài giảng. Hãy trả lời thân thiện, ngắn gọn và tập trung vào chuyên môn của lớp ${selectedClass.name}.`;
+      
+      const res = await studentService.askFlyingClassAI(userMessage, history, context);
+      
+      if (res && res.reply) {
+        setAiMessages(prev => [...prev, { role: 'model', text: res.reply }]);
+      } else {
+        setAiMessages(prev => [...prev, { role: 'model', text: `Xin lỗi, có lỗi xảy ra: ${res?.message || 'Không có phản hồi'}` }]);
+      }
     } catch (error: any) {
       console.error(error);
-      setAiMessages(prev => [...prev, { role: 'model', text: `Xin lỗi, tôi đang gặp sự cố kết nối tới Gemini API: ${error.message || JSON.stringify(error)}` }]);
+      setAiMessages(prev => [...prev, { role: 'model', text: `Xin lỗi, tôi đang gặp sự cố kết nối tới AI: ${error.message || JSON.stringify(error)}` }]);
     } finally {
       setIsAILoading(false);
     }
@@ -1597,7 +1627,12 @@ const TeacherDashboard = () => {
       )}
 
       <div className="grid grid-cols-4 gap-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2 pb-2">
-        {classes.filter(c => 
+        {classes.length === 0 ? (
+          <div className="col-span-4 flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
+            <BookOpen size={48} className="mb-4 opacity-50" />
+            <p className="text-lg font-medium">Bạn chưa có lớp nào</p>
+          </div>
+        ) : classes.filter(c => 
           c && 
           ((c.name || '').toLowerCase().includes(searchClass.toLowerCase()) || 
            (c.code && c.code.toLowerCase().includes(searchClass.toLowerCase())))
@@ -1983,7 +2018,7 @@ const TeacherDashboard = () => {
                   onClick={handleExportCSV}
                   className="bg-emerald-600 hover:bg-emerald-500 text-slate-900 dark:text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center transition shadow-lg shadow-emerald-500/20"
                 >
-                  <FileSpreadsheet size={16} className="mr-2" /> Xuất file CSV
+                  <FileSpreadsheet size={16} className="mr-2" /> Xuất file Excel
                 </button>
               </div>
             </div>
@@ -2018,11 +2053,15 @@ const TeacherDashboard = () => {
                             <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{s.email}</td>
                             {(gradebookData.exams || []).map((exam: any) => {
                               const score = studentGrades[exam.name];
+                              const isArray = Array.isArray(score);
+                              const hasScore = score !== undefined && (!isArray || score.length > 0);
+                              const latestScore = isArray && hasScore ? score[score.length - 1] : score;
+                              const displayScore = isArray && hasScore ? score.join(" | ") : score;
                               return (
                                 <td key={exam.name} className="px-6 py-4 text-center font-bold">
-                                  {score !== undefined ? (
-                                    <span className={score >= 8 ? 'text-emerald-400' : score >= 5 ? 'text-yellow-400' : 'text-red-400'}>
-                                      {score}
+                                  {hasScore ? (
+                                    <span className={latestScore >= 8 ? 'text-emerald-400' : latestScore >= 5 ? 'text-yellow-400' : 'text-red-400'}>
+                                      {displayScore}
                                     </span>
                                   ) : (
                                     <span className="text-slate-400 font-normal">-</span>
@@ -2130,8 +2169,15 @@ const TeacherDashboard = () => {
           <select 
             value={statFilterType} 
             onChange={e => {
-              setStatFilterType(e.target.value);
-              setStatFilterValue('');
+              const type = e.target.value;
+              setStatFilterType(type);
+              if (type === 'quarter') {
+                setStatFilterValue(Math.ceil((new Date().getMonth() + 1) / 3).toString());
+              } else if (type === 'month') {
+                setStatFilterValue((new Date().getMonth() + 1).toString());
+              } else {
+                setStatFilterValue('');
+              }
             }}
             className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm rounded text-slate-900 dark:text-white px-3 py-1.5 outline-none focus:border-blue-500"
           >
@@ -2321,19 +2367,45 @@ const TeacherDashboard = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <h3 className="font-bold text-slate-900 dark:text-white text-lg">Lịch sử sử dụng Token</h3>
+          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+            <button
+              onClick={() => setTokenFilterType('week')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tokenFilterType === 'week' ? 'bg-white dark:bg-slate-600 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Tuần
+            </button>
+            <button
+              onClick={() => setTokenFilterType('month')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tokenFilterType === 'month' ? 'bg-white dark:bg-slate-600 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Tháng
+            </button>
+            <button
+              onClick={() => setTokenFilterType('year')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tokenFilterType === 'year' ? 'bg-white dark:bg-slate-600 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            >
+              Năm
+            </button>
+          </div>
         </div>
         <div className="p-6 h-[300px] w-full">
           {tokenHistory && tokenHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={tokenHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={tokenHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorToken" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <RechartsTooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff'}} />
-                <Bar dataKey="tokens" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
-              </BarChart>
+                <Area type="monotone" dataKey="tokens" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorToken)" name="Token đã dùng" />
+              </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center">
@@ -2998,7 +3070,7 @@ const TeacherDashboard = () => {
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center font-bold text-slate-900 dark:text-white shadow-lg shadow-blue-500/20">FC</div>
+              <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
               <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">FlyingClass</span>
               <span className="text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20 ml-2">Teacher</span>
             </div>
